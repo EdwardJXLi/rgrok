@@ -1,13 +1,13 @@
-![pgrok banner](https://user-images.githubusercontent.com/2946214/227126410-3e9dae19-d0c0-4a96-9040-1322e389c8db.png)
+![rgrok banner](https://user-images.githubusercontent.com/2946214/227126410-3e9dae19-d0c0-4a96-9040-1322e389c8db.png)
 
 <div align="center">
   <h3>Poor man's ngrok</h3>
-  <a href="https://sourcegraph.com/github.com/pgrok/pgrok"><img src="https://img.shields.io/badge/view%20on-Sourcegraph-brightgreen.svg?style=for-the-badge&logo=sourcegraph" alt="Sourcegraph"></a>
+  <a href="https://sourcegraph.com/github.com/EdwardJXLi/rgrok"><img src="https://img.shields.io/badge/view%20on-Sourcegraph-brightgreen.svg?style=for-the-badge&logo=sourcegraph" alt="Sourcegraph"></a>
 </div>
 
 ## What?
 
-The pgrok is a multi-tenant HTTP/TCP reverse tunnel solution through remote port forwarding from the SSH protocol.
+rgrok is a multi-tenant HTTP/TCP reverse tunnel solution through remote port forwarding from the SSH protocol.
 
 This is intended for small teams that need to expose the local development environment to the public internet, and you need to bring your own domain name and SSO provider.
 
@@ -36,9 +36,9 @@ Before you get started, make sure you have the following:
 
 > [!NOTE]
 > 1. All values used in this document are just examples, substitute based on your setup.
-> 1. All examples in this document use HTTP for brevity, you may refer to our example walkthrough of [setting HTTPS with Caddy and Cloudflare](https://github.com/pgrok/pgrok/blob/main/docs/admin/https.md).
+> 1. All examples in this document use HTTP for brevity, you may refer to our example walkthrough of [setting HTTPS with Caddy and Cloudflare](https://github.com/EdwardJXLi/rgrok/blob/main/docs/admin/https.md).
 
-### Set up the server (`pgrokd`)
+### Set up the server (`rgrokd`)
 
 1. Add the following DNS records for your domain name:
     1. `A` record for `example.com` to `111.33.5.14` (with **DNS only** if using Cloudflare)
@@ -57,26 +57,26 @@ Before you get started, make sure you have the following:
     ```
 1. Create a new OIDC client in your SSO with the **Redirect URI** to be `http://example.com/-/oidc/callback`.
 
-### Set up the client (`pgrok`)
+### Set up the client (`rgrok`)
 
 1. Go to http://example.com, authenticate with your SSO to obtain the token and URL (e.g. `http://unknwon.example.com`).
-1. Download the latest version of the `pgrok`:
+1. Download the latest version of the `rgrok`:
     - For Homebrew:
         ```sh
-        brew install pgrok
+        brew install rgrok
         ```
-    - For others, download the archive from the [Releases](https://github.com/pgrok/pgrok/releases) page.
-1. Initialize a `pgrok.yml` file with the following command (assuming you want to forward requests to `http://localhost:3000`):
+    - For others, download the archive from the [Releases](https://github.com/EdwardJXLi/rgrok/releases) page.
+1. Initialize a `rgrok.yml` file with the following command (assuming you want to forward requests to `http://localhost:3000`):
     ```sh
-    pgrok init --remote-addr example.com:2222 --forward-addr http://localhost:3000 --token {YOUR_TOKEN}
+    rgrok init --remote-addr example.com:2222 --forward-addr http://localhost:3000 --token {YOUR_TOKEN}
     ```
     - By default, the config file is created under the [standard user configuration directory (`XDG_CONFIG_HOME`)](https://github.com/adrg/xdg):
-        - macOS: `~/Library/Application Support/pgrok/pgrok.yml`
-        - Linux: `~/.config/pgrok/pgrok.yml`
-        - Windows: `%LOCALAPPDATA%\pgrok\pgrok.yml`
+        - macOS: `~/Library/Application Support/rgrok/rgrok.yml`
+        - Linux: `~/.config/rgrok/rgrok.yml`
+        - Windows: `%LOCALAPPDATA%\rgrok\rgrok.yml`
     - Use `--config` flag to specify a different path for the config file.
-1. Launch the client by executing the `pgrok` or `pgrok http` command.
-    - By default, `pgrok` expects the `pgrok.yml` is available under the standard user configuration directory, or under the home directory (`~/.pgrok/pgrok.yml`). Use `--config` flag to specify a different path for the config file.
+1. Launch the client by executing the `rgrok` or `rgrok http` command.
+    - By default, `rgrok` expects the `rgrok.yml` is available under the standard user configuration directory, or under the home directory (`~/.rgrok/rgrok.yml`). Use `--config` flag to specify a different path for the config file.
     - Use the `--debug` flag to turn on debug logging.
     - Upon successful startup, you should see a log looks like:
         ```
@@ -84,10 +84,10 @@ Before you get started, make sure you have the following:
         ```
 1. Now visit the URL.
 
-As a special case, the first argument of the `pgrok http` can be used to specify forward address, e.g.
+As a special case, the first argument of the `rgrok http` can be used to specify forward address, e.g.
 
 ```
-pgrok http 8080
+rgrok http 8080
 ```
 
 #### Raw TCP tunnels
@@ -98,7 +98,7 @@ pgrok http 8080
 Use the `tcp` subcommand to tunnel raw TCP traffic:
 
 ```
-pgrok tcp 5432
+rgrok tcp 5432
 ```
 
 Upon successful startup, you should see a log looks like:
@@ -119,7 +119,7 @@ Following config options can be overridden through CLI flags for both `http` and
 
 #### HTTP dynamic forwards
 
-Typical HTTP reverse tunnel solutions only support forwarding requests to a single address, `pgrok` can be configured to have dynamic forward rules when tunneling HTTP requests.
+Typical HTTP reverse tunnel solutions only support forwarding requests to a single address, `rgrok` can be configured to have dynamic forward rules when tunneling HTTP requests.
 
 For example, if your local frontend is running at `http://localhost:3000` but some gRPC endpoints need to talk to the backend directly at `http://localhost:8080`:
 
@@ -147,7 +147,7 @@ Because the standard SSH protocol is used for tunneling, you may well just use t
 
 ## Explain it to me
 
-![pgrok network diagram](https://user-images.githubusercontent.com/2946214/229048941-cc12139d-f250-49fa-806d-19c27996ee09.png)
+![rgrok network diagram](https://user-images.githubusercontent.com/2946214/229048941-cc12139d-f250-49fa-806d-19c27996ee09.png)
 
 ## Contributing
 

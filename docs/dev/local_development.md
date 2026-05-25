@@ -1,10 +1,10 @@
 # Set up your development environment
 
-The pgrok is built and runs as a single binary and meant to be cross platform. Therefore, you should be able to develop pgrok in any major platforms you prefer. However, this guide will focus on macOS only.
+The rgrok is built and runs as a single binary and meant to be cross platform. Therefore, you should be able to develop rgrok in any major platforms you prefer. However, this guide will focus on macOS only.
 
 ## Step 1: Install dependencies
 
-The development of pgrok has the following dependencies:
+The development of rgrok has the following dependencies:
 
 - [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) (v2 or higher)
 - [Go](https://go.dev/doc/install) (v1.20 or higher)
@@ -41,14 +41,14 @@ You need a fresh Postgres database and a database user that has full ownership o
 2. Create the user and password:
 
     ```bash
-    createuser --superuser pgrokd
-    psql -c "ALTER USER pgrokd WITH PASSWORD 'pgrokd';"
+    createuser --superuser rgrokd
+    psql -c "ALTER USER rgrokd WITH PASSWORD 'rgrokd';"
     ```
 
 3. Create the database:
 
     ```bash
-    createdb --owner=pgrokd --encoding=UTF8 --template=template0 pgrokd
+    createdb --owner=rgrokd --encoding=UTF8 --template=template0 rgrokd
     ```
 
 ## Step 3: Get the code
@@ -57,18 +57,18 @@ Generally, you don't need a full clone, so set `--depth` to `10`:
 
 ```bash
 # HTTPS
-git clone --depth 10 https://github.com/pgrok/pgrok.git
+git clone --depth 10 https://github.com/EdwardJXLi/rgrok.git
 
 # or SSH
-git clone --depth 10 git@github.com:pgrok/pgrok.git
+git clone --depth 10 git@github.com:EdwardJXLi/rgrok.git
 ```
 
 > [!NOTE]
 > The repository has Go modules enabled, please clone to somewhere outside of your `$GOPATH`.
 
-## Step 4: Initialize `pgrokd.yml`
+## Step 4: Initialize `rgrokd.yml`
 
-Create a `pgrokd.yml` file under the repository root and put the following configuration:
+Create a `rgrokd.yml` file under the repository root and put the following configuration:
 
 ```yaml
 external_url: "http://localhost:3320"
@@ -84,9 +84,9 @@ sshd:
 database:
   host: "localhost"
   port: 5432
-  user: "pgrokd"
-  password: "pgrokd"
-  database: "pgrokd"
+  user: "rgrokd"
+  password: "rgrokd"
+  database: "rgrokd"
 
 identity_provider:
   type: "oidc"
@@ -112,6 +112,6 @@ Then, visit http://localhost:3320!
 
 Few things to note:
 
-- The web, proxy and SSHD servers of the pgrokd are started
-- No need to access the Vite server for the pgrokd web app as all requests to it are proxyed by the pgrokd web server
+- The web, proxy and SSHD servers of the rgrokd are started
+- No need to access the Vite server for the rgrokd web app as all requests to it are proxyed by the rgrokd web server
 - A [mock OIDC server](../../integration-tests/oidc-server/) is started for your convenience

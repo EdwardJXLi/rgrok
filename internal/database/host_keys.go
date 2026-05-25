@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
-	"github.com/pgrok/pgrok/internal/cryptoutil"
+	"github.com/EdwardJXLi/rgrok/internal/cryptoutil"
 )
 
 // HostKey represents a host key for SSH.

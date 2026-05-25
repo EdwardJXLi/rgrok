@@ -1,19 +1,19 @@
 # Deploy with Docker images
 
-Visit [GitHub Container registry](https://github.com/pgrok/pgrok/pkgs/container/pgrokd) to see all available images and tags.
+Visit [GitHub Container registry](https://github.com/EdwardJXLi/rgrok/pkgs/container/rgrokd) to see all available images and tags.
 
 Image versions:
-  - Every released version has its own tag, e.g. `ghcr.io/pgrok/pgrokd:1.1.4`.
+  - Every released version has its own tag, e.g. `ghcr.io/EdwardJXLi/rgrokd:1.1.4`.
   - The `latest` tag is an alias for the latest released version.
   - The `insiders` tag is the image version built from the latest `main` branch.
 
 ## Standalone Docker container
 
-1. Pick a directory on the file system to store the configuration file (`pgrokd.yml`), e.g. `/srv/pgrokd`:
+1. Pick a directory on the file system to store the configuration file (`rgrokd.yml`), e.g. `/srv/rgrokd`:
     ```sh
-    mkdir -p /srv/pgrokd
+    mkdir -p /srv/rgrokd
     ```
-1. Create the configuration file (`/srv/pgrokd/pgrokd.yml`):
+1. Create the configuration file (`/srv/rgrokd/rgrokd.yml`):
     ```yaml
     external_url: "http://example.com"
     web:
@@ -31,7 +31,7 @@ Image versions:
       port: 5432
       user: "REDACTED"
       password: "REDACTED"
-      database: "pgrokd"
+      database: "rgrokd"
 
     identity_provider:
       type: "oidc"
@@ -52,29 +52,29 @@ Image versions:
        docker run \
          --detach \
          --restart always \
-         --volume /srv/pgrokd:/var/opt/pgrokd \
+         --volume /srv/rgrokd:/var/opt/rgrokd \
          --publish 3320:3320 \
          --publish 3000:3000 \
          --publish 2222:2222 \
-         --name pgrokd \
-         ghcr.io/pgrok/pgrokd:latest
+         --name rgrokd \
+         ghcr.io/EdwardJXLi/rgrokd:latest
        ```
    1. If you want to allow tunneling raw TCP traffic (this only works on Linux, but [expose port range in Docker is just too slow](https://github.com/moby/moby/issues/14288)):
        ```sh
        docker run \
          --detach \
          --restart always \
-         --volume /srv/pgrokd:/var/opt/pgrokd \
+         --volume /srv/rgrokd:/var/opt/rgrokd \
          --network host \
-         --name pgrokd \
-         ghcr.io/pgrok/pgrokd:latest
+         --name rgrokd \
+         ghcr.io/EdwardJXLi/rgrokd:latest
        ```
 
 ### Upgrade
 
 ```sh
-docker stop pgrokd
-docker rm pgrokd
+docker stop rgrokd
+docker rm rgrokd
 docker run ...
 ```
 
@@ -82,11 +82,11 @@ docker run ...
 
 > **Note**: The [`docker-compose.yml`](../../docker-compose.yml) file lives under the repository root.
 
-1. Create the directory to store the configuration file (`pgrokd.yml`):
+1. Create the directory to store the configuration file (`rgrokd.yml`):
     ```sh
-    mkdir -p ./pgrokd
+    mkdir -p ./rgrokd
     ```
-1. Create the configuration file (`./pgrokd/pgrokd.yml`):
+1. Create the configuration file (`./rgrokd/rgrokd.yml`):
     ```yaml
     external_url: "http://example.com"
     web:
@@ -106,7 +106,7 @@ docker run ...
       user: "REDACTED"
       # Make sure to match the value of the environment variable "POSTGRES_PASSWORD"
       password: "REDACTED"
-      database: "pgrokd"
+      database: "rgrokd"
 
     identity_provider:
       type: "oidc"

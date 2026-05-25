@@ -1,9 +1,9 @@
 services:
-  pgrokd:
-    image: "ghcr.io/pgrok/pgrokd:latest"
+  rgrokd:
+    image: "ghcr.io/EdwardJXLi/rgrokd:latest"
     restart: always
     volumes:
-      - "./pgrokd:/var/opt/pgrokd"
+      - "./rgrokd:/var/opt/rgrokd"
     ports:
       - "3320:3320"
       - "3000:3000"
@@ -17,7 +17,7 @@ services:
     volumes:
       - "pg_data:/var/lib/postgresql/data"
     environment:
-      POSTGRES_DB: pgrokd
+      POSTGRES_DB: rgrokd
       POSTGRES_USER: "${POSTGRES_USER}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
 

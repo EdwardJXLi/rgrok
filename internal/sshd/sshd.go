@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/pgrok/pgrok/internal/conf"
-	"github.com/pgrok/pgrok/internal/cryptoutil"
-	"github.com/pgrok/pgrok/internal/database"
-	"github.com/pgrok/pgrok/internal/reverseproxy"
+	"github.com/EdwardJXLi/rgrok/internal/conf"
+	"github.com/EdwardJXLi/rgrok/internal/cryptoutil"
+	"github.com/EdwardJXLi/rgrok/internal/database"
+	"github.com/EdwardJXLi/rgrok/internal/reverseproxy"
 )
 
 // Start starts a SSH server listening on the given port.

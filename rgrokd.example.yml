@@ -32,7 +32,7 @@ database:
   port: 5432
   user: "REDACTED"
   password: "REDACTED"
-  database: "pgrokd"
+  database: "rgrokd"
 
 # Settings for the identity provider.
 identity_provider:

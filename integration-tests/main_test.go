@@ -67,13 +67,13 @@ func TestMain(m *testing.M) {
 	shutdownPgrokd, err := setupPgrokd(ctx)
 	if err != nil {
 		code = 1
-		log.Print("Failed to setup pgrokd", "error", err)
+		log.Print("Failed to setup rgrokd", "error", err)
 		return
 	}
 	defer func() {
 		err = shutdownPgrokd()
 		if err != nil {
-			log.Print("Failed to shutdown pgrokd", "error", err)
+			log.Print("Failed to shutdown rgrokd", "error", err)
 		}
 	}()
 
@@ -125,43 +125,43 @@ func setupOIDCServer(ctx context.Context) (shutdown func() error, _ error) {
 }
 
 func setupPgrokd(ctx context.Context) (shutdown func() error, _ error) {
-	err := run.Cmd(ctx, "pnpm", "--dir ../pgrokd/web", "run", "build").Run().Wait()
+	err := run.Cmd(ctx, "pnpm", "--dir ../rgrokd/web", "run", "build").Run().Wait()
 	if err != nil {
 		return nil, errors.Wrap(err, "pnpm run build")
 	}
 
-	err = run.Cmd(ctx, "go", "build", "-o", "../.bin/pgrokd", "../pgrokd/cli").Run().Wait()
+	err = run.Cmd(ctx, "go", "build", "-o", "../.bin/rgrokd", "../rgrokd/cli").Run().Wait()
 	if err != nil {
 		return nil, errors.Wrap(err, "go build")
 	}
 
-	cmd := exec.Command("../.bin/pgrokd")
+	cmd := exec.Command("../.bin/rgrokd")
 	cmd.Env = append(cmd.Environ(), "FLAMEGO_ENV="+string(flamego.EnvTypeProd))
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start pgrokd", "error", err)
+			log.Print("Failed to start rgrokd", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
-			fmt.Println("[pgrokd]", line)
+			fmt.Println("[rgrokd]", line)
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream pgrokd output", "error", err)
+			log.Print("Failed to stream rgrokd output", "error", err)
 			return
 		}
-		log.Print("pgrokd exited")
+		log.Print("rgrokd exited")
 	}()
 
-	// Make sure the pgrokd web server is live
+	// Make sure the rgrokd web server is live
 	time.Sleep(3 * time.Second)
 	err = run.Cmd(ctx, "curl", "http://localhost:3320/signin").Run().Wait()
 	if err != nil {
-		return nil, errors.Wrap(err, "probe pgrokd web server liveness")
+		return nil, errors.Wrap(err, "probe rgrokd web server liveness")
 	}
-	log.Print("pgrokd started")
+	log.Print("rgrokd started")
 
 	return func() error { return kill(cmd.Process.Pid) }, nil
 }
@@ -237,14 +237,14 @@ func kill(pid int) error {
 }
 
 func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string, shutdown func() error, _ error) {
-	err := run.Cmd(ctx, "go", "build", "-o", "../.bin/pgrok", "../pgrok/cli").Run().Wait()
+	err := run.Cmd(ctx, "go", "build", "-o", "../.bin/rgrok", "../rgrok/cli").Run().Wait()
 	if err != nil {
 		return "", nil, errors.Wrap(err, "go build")
 	}
 
 	args := []string{
 		protocol,
-		"--config", "pgrok.yml",
+		"--config", "rgrok.yml",
 		"--token", token,
 	}
 	if protocol == "tcp" {
@@ -254,7 +254,7 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 		args = append(args, strconv.Itoa(port))
 	}
 
-	cmd := exec.Command("../.bin/pgrok", args...)
+	cmd := exec.Command("../.bin/rgrok", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	started := false
@@ -262,11 +262,11 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start pgrok", "error", err)
+			log.Print("Failed to start rgrok", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
-			fmt.Printf("[pgrok-%s] %s\n", protocol, line)
+			fmt.Printf("[rgrok-%s] %s\n", protocol, line)
 			if !started && strings.Contains(line, "You're ready to go live") {
 				started = true
 				endpoint = line[strings.Index(line, "://")+3 : strings.Index(line, "!")]
@@ -274,18 +274,18 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 			}
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream pgrok output", "error", err)
+			log.Print("Failed to stream rgrok output", "error", err)
 			return
 		}
-		log.Printf("pgrok %s exited", protocol)
+		log.Printf("rgrok %s exited", protocol)
 	}()
 
-	// Make sure the pgrok is ready
+	// Make sure the rgrok is ready
 	select {
 	case <-ready:
-		log.Print("pgrok started", "protocol", protocol, "endpoint", endpoint)
+		log.Print("rgrok started", "protocol", protocol, "endpoint", endpoint)
 	case <-time.After(5 * time.Second):
-		return "", nil, errors.New("pgrok failed to start after 5 seconds")
+		return "", nil, errors.New("rgrok failed to start after 5 seconds")
 	}
 
 	return endpoint, func() error { return kill(cmd.Process.Pid) }, nil

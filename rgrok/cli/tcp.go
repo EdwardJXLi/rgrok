@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/pgrok/pgrok/internal/strutil"
+	"github.com/EdwardJXLi/rgrok/internal/strutil"
 )
 
 func commandTCP(homeDir string) *cli.Command {

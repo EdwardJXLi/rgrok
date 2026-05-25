@@ -1,4 +1,4 @@
-module github.com/pgrok/pgrok
+module github.com/EdwardJXLi/rgrok
 
 go 1.25.0
 

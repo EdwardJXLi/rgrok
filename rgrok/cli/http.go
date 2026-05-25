@@ -18,8 +18,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 
-	"github.com/pgrok/pgrok/internal/dynamicforward"
-	"github.com/pgrok/pgrok/internal/strutil"
+	"github.com/EdwardJXLi/rgrok/internal/dynamicforward"
+	"github.com/EdwardJXLi/rgrok/internal/strutil"
 )
 
 func commandHTTP(homeDir string) *cli.Command {
@@ -156,7 +156,7 @@ func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
 		"tcp",
 		remoteAddr,
 		&ssh.ClientConfig{
-			User: "pgrok",
+			User: "rgrok",
 			Auth: []ssh.AuthMethod{
 				ssh.Password(token),
 			},

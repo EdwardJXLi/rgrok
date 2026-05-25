@@ -7,8 +7,8 @@ body:
       value: |
         Thanks for taking the time to fill out this form!
 
-        - Before you file an issue read the [contributing guide](https://github.com/pgrok/pgrok/blob/main/.github/contributing.md).
-        - Check to make sure someone hasn't already opened a similar [issue](https://github.com/pgrok/pgrok/issues).
+        - Before you file an issue read the [contributing guide](https://github.com/EdwardJXLi/rgrok/blob/main/.github/contributing.md).
+        - Check to make sure someone hasn't already opened a similar [issue](https://github.com/EdwardJXLi/rgrok/issues).
   - type: textarea
     attributes:
       label: What needs to be improved? Please describe

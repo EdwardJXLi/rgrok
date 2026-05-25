@@ -3,8 +3,8 @@
 dist
 
 # Configuration and application files
-/pgrokd.yml
-/pgrok.yml
+/rgrokd.yml
+/rgrok.yml
 .direnv
 .idea
 .task

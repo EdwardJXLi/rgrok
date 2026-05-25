@@ -10,15 +10,15 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/pgrok/pgrok/internal/osutil"
+	"github.com/EdwardJXLi/rgrok/internal/osutil"
 )
 
 var version = "0.0.0+dev"
 
 func commonFlags(homeDir string) []cli.Flag {
-	configPath := filepath.Join(homeDir, ".pgrok", "pgrok.yml")
+	configPath := filepath.Join(homeDir, ".rgrok", "rgrok.yml")
 	if !osutil.IsExist(configPath) {
-		xdgConfigPath, err := xdg.ConfigFile(filepath.Join("pgrok", "pgrok.yml"))
+		xdgConfigPath, err := xdg.ConfigFile(filepath.Join("rgrok", "rgrok.yml"))
 		if err == nil {
 			configPath = xdgConfigPath
 		}
@@ -54,7 +54,7 @@ func main() {
 	}
 
 	app := cli.NewApp()
-	app.Name = "pgrok"
+	app.Name = "rgrok"
 	app.Usage = "Poor man's ngrok"
 	app.Version = version
 	app.DefaultCommand = "http"

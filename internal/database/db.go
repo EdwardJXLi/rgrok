@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/pgrok/pgrok/internal/conf"
+	"github.com/EdwardJXLi/rgrok/internal/conf"
 )
 
 // DB is the database handle.
@@ -52,7 +52,7 @@ func New(logWriter io.Writer, config *conf.Database) (*DB, error) {
 	)
 
 	dsn := fmt.Sprintf(
-		"user='%s' password='%s' host='%s' port='%d' dbname='%s' search_path='public' application_name='pgrokd' client_encoding=UTF8",
+		"user='%s' password='%s' host='%s' port='%d' dbname='%s' search_path='public' application_name='rgrokd' client_encoding=UTF8",
 		config.User, config.Password, config.Host, config.Port, config.Database,
 	)
 	db, err := gorm.Open(

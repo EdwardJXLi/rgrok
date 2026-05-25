@@ -17,10 +17,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/pgrok/pgrok/internal/conf"
-	"github.com/pgrok/pgrok/internal/database"
-	"github.com/pgrok/pgrok/internal/reverseproxy"
-	"github.com/pgrok/pgrok/internal/strutil"
+	"github.com/EdwardJXLi/rgrok/internal/conf"
+	"github.com/EdwardJXLi/rgrok/internal/database"
+	"github.com/EdwardJXLi/rgrok/internal/reverseproxy"
+	"github.com/EdwardJXLi/rgrok/internal/strutil"
 )
 
 // Client is a SSH client that has established a connection.

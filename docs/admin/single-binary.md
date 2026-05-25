@@ -1,6 +1,6 @@
 # Deploy with single binary
 
-1. Create a `pgrokd.yml` file:
+1. Create a `rgrokd.yml` file:
     ```yaml
     external_url: "http://example.com"
     web:
@@ -17,7 +17,7 @@
       port: 5432
       user: "REDACTED"
       password: "REDACTED"
-      database: "pgrokd"
+      database: "rgrokd"
 
     identity_provider:
       type: "oidc"
@@ -32,6 +32,6 @@
     #  # The required domain name, "field_mapping.email" is required to set for this to work.
     #  required_domain: "example.com"
     ```
-1. Download the latest version of the `pgrokd` archive from the [Releases](https://github.com/pgrok/pgrok/releases) page.
-1. Launch the `pgrokd` in background (systemd, screen, nohup).
-    1. By default, `pgrokd` expects the `pgrokd.yml` is available in the working directory. Use `--config` flag to specify a different path for the config file.
+1. Download the latest version of the `rgrokd` archive from the [Releases](https://github.com/EdwardJXLi/rgrok/releases) page.
+1. Launch the `rgrokd` in background (systemd, screen, nohup).
+    1. By default, `rgrokd` expects the `rgrokd.yml` is available in the working directory. Use `--config` flag to specify a different path for the config file.

@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
 
-	"github.com/pgrok/pgrok/internal/conf"
-	"github.com/pgrok/pgrok/internal/database"
-	"github.com/pgrok/pgrok/internal/reverseproxy"
+	"github.com/EdwardJXLi/rgrok/internal/conf"
+	"github.com/EdwardJXLi/rgrok/internal/database"
+	"github.com/EdwardJXLi/rgrok/internal/reverseproxy"
 )
 
 var version = "0.0.0+dev"
@@ -24,7 +24,7 @@ func main() {
 	}
 	log.SetTimeFormat(time.DateTime)
 
-	configPath := flag.String("config", "pgrokd.yml", "the path to the config file")
+	configPath := flag.String("config", "rgrokd.yml", "the path to the config file")
 	flag.Parse()
 
 	config, err := conf.Load(*configPath)

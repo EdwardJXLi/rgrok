@@ -1,6 +1,6 @@
 # Setting HTTPS with Caddy and Cloudflare
 
-This document walks through setting up HTTPS for pgrokd using [Caddy](https://caddyserver.com) as the reverse proxy on your server, and [Cloudflare](https://www.cloudflare.com/) as the DNS provider.
+This document walks through setting up HTTPS for rgrokd using [Caddy](https://caddyserver.com) as the reverse proxy on your server, and [Cloudflare](https://www.cloudflare.com/) as the DNS provider.
 
 There are two approaches to set up HTTPS with different level of security with their corresponding trade-offs. Both approaches offer HTTPS to the end user's browser, and the main difference is whether the traffic between Cloudflare and your server is encrypted or not.
 

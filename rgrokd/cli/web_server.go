@@ -19,11 +19,11 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
-	"github.com/pgrok/pgrok/internal/conf"
-	"github.com/pgrok/pgrok/internal/cryptoutil"
-	"github.com/pgrok/pgrok/internal/database"
-	"github.com/pgrok/pgrok/internal/strutil"
-	"github.com/pgrok/pgrok/internal/userutil"
+	"github.com/EdwardJXLi/rgrok/internal/conf"
+	"github.com/EdwardJXLi/rgrok/internal/cryptoutil"
+	"github.com/EdwardJXLi/rgrok/internal/database"
+	"github.com/EdwardJXLi/rgrok/internal/strutil"
+	"github.com/EdwardJXLi/rgrok/internal/userutil"
 )
 
 //go:embed *
@@ -108,7 +108,7 @@ func startWebServer(config *conf.Config, db *database.DB) {
 				InitTable: true,
 			},
 			Cookie: session.CookieOptions{
-				Name: "pgrokd_session",
+				Name: "rgrokd_session",
 			},
 			ErrorFunc: func(err error) {
 				log.Error("session", "error", err)
