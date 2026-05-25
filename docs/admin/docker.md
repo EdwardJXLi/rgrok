@@ -4,8 +4,7 @@ Visit [GitHub Container registry](https://github.com/EdwardJXLi/rgrok/pkgs/conta
 
 Image versions:
   - Every released version has its own tag, e.g. `ghcr.io/EdwardJXLi/rgrokd:1.1.4`.
-  - The `latest` tag is an alias for the latest released version.
-  - The `insiders` tag is the image version built from the latest `main` branch.
+  - The `latest` tag tracks the most recent build from `main` (and is also re-pointed to each new release on publish). Pin to a specific version tag for reproducible deployments.
 
 ## Standalone Docker container
 
