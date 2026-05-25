@@ -5,8 +5,8 @@ dist
 # Configuration and application files
 /pgrokd.yml
 /pgrok.yml
+.direnv
 .idea
-.envrc
 .task
 .vite
 CLAUDE.md
