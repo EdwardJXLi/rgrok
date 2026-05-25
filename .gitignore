@@ -9,6 +9,7 @@ dist
 .envrc
 .task
 .vite
+CLAUDE.md
 
 # System junk
 .DS_Store
