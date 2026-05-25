@@ -30,6 +30,17 @@ type Proxy struct {
 		PortStart int    `yaml:"port_start"`
 		PortEnd   int    `yaml:"port_end"`
 	} `yaml:"tcp"`
+
+	// SubdomainStrategy controls how HTTP tunnel subdomains are assigned.
+	// "random" (default) assigns a cryptographically random subdomain per
+	// new tunnel session.
+	// "stable" uses the per-user subdomain from the principles table
+	// (upstream pgrok behavior).
+	SubdomainStrategy string `yaml:"subdomain_strategy"`
+
+	// RandomSubdomainLength is the length of the generated label when
+	// SubdomainStrategy is "random". Defaults to 8.
+	RandomSubdomainLength int `yaml:"random_subdomain_length"`
 }
 
 // Supported database backends.
@@ -37,6 +48,12 @@ const (
 	DatabaseTypePostgres = "postgres"
 	DatabaseTypeMySQL    = "mysql"
 	DatabaseTypeSQLite   = "sqlite"
+)
+
+// Supported subdomain assignment strategies.
+const (
+	SubdomainStrategyStable = "stable"
+	SubdomainStrategyRandom = "random"
 )
 
 type Database struct {
@@ -92,6 +109,23 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	config.ExternalURL = strings.TrimSuffix(config.ExternalURL, "/")
+
+	if config.Proxy.SubdomainStrategy == "" {
+		config.Proxy.SubdomainStrategy = SubdomainStrategyRandom
+	}
+	switch config.Proxy.SubdomainStrategy {
+	case SubdomainStrategyStable:
+		// no extra config needed
+	case SubdomainStrategyRandom:
+		if config.Proxy.RandomSubdomainLength <= 0 {
+			config.Proxy.RandomSubdomainLength = 8
+		}
+		if config.Proxy.RandomSubdomainLength > 63 {
+			return nil, errors.Errorf("proxy.random_subdomain_length must be <= 63 (got %d)", config.Proxy.RandomSubdomainLength)
+		}
+	default:
+		return nil, errors.Errorf("unsupported proxy.subdomain_strategy %q (expected one of: stable, random)", config.Proxy.SubdomainStrategy)
+	}
 
 	if db := config.Database; db != nil {
 		if db.Type == "" {

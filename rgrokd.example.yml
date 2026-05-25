@@ -17,8 +17,8 @@ proxy:
   #   "random" (default) — a fresh cryptographically random subdomain per tunnel session.
   #   "stable"           — each user gets one fixed subdomain (upstream pgrok behavior).
   subdomain_strategy: "random"
-  # Length of the generated label when subdomain_strategy is "random". Default: 12.
-  # random_subdomain_length: 12
+  # Length of the generated label when subdomain_strategy is "random". Default: 8.
+  # random_subdomain_length: 8
   # Optional settings for the TCP proxy.
   tcp:
     # The domain name of the proxy URLs - defaults to proxy.domain value

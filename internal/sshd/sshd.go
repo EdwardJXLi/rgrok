@@ -107,6 +107,12 @@ func Start(
 				return
 			}
 
+			label, err := subdomainFor(proxy, principal)
+			if err != nil {
+				logger.Error("Failed to assign subdomain", "error", err)
+				return
+			}
+
 			ready, signalReady := context.WithCancelCause(context.Background())
 			client := &Client{
 				logger:      logger,
@@ -114,7 +120,7 @@ func Start(
 				serverConn:  serverConn,
 				principal:   principal,
 				protocol:    "http",
-				host:        principal.Subdomain + "." + proxy.Domain,
+				host:        label + "." + proxy.Domain,
 				ready:       ready,
 				signalReady: signalReady,
 			}
@@ -146,6 +152,21 @@ func Start(
 			}
 		}(conn)
 	}
+}
+
+// subdomainFor returns the HTTP subdomain label to use for a new SSH session
+// based on the configured strategy. For "random" (the default) a fresh
+// cryptographically random label is generated per session. For "stable" the
+// per-user subdomain from the principles table is used (upstream pgrok
+// behavior).
+func subdomainFor(proxy conf.Proxy, principal *database.Principal) (string, error) {
+	switch proxy.SubdomainStrategy {
+	case conf.SubdomainStrategyRandom, "":
+		return cryptoutil.RandomSubdomain(proxy.RandomSubdomainLength)
+	case conf.SubdomainStrategyStable:
+		return principal.Subdomain, nil
+	}
+	return "", errors.Errorf("unsupported subdomain strategy %q", proxy.SubdomainStrategy)
 }
 
 func ensureHostKeys(ctx context.Context, db *database.DB) ([]ssh.Signer, error) {
