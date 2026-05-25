@@ -32,7 +32,22 @@ type Proxy struct {
 	} `yaml:"tcp"`
 }
 
+// Supported database backends.
+const (
+	DatabaseTypePostgres = "postgres"
+	DatabaseTypeMySQL    = "mysql"
+	DatabaseTypeSQLite   = "sqlite"
+)
+
 type Database struct {
+	// Type is the database backend: "postgres", "mysql", or "sqlite".
+	// Defaults to "postgres" when empty.
+	Type string `yaml:"type"`
+
+	// Path is the file path for sqlite. Ignored for other backends.
+	Path string `yaml:"path"`
+
+	// Host/Port/User/Password/Database are used by postgres and mysql.
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	User     string `yaml:"user"`
@@ -77,6 +92,24 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	config.ExternalURL = strings.TrimSuffix(config.ExternalURL, "/")
+
+	if db := config.Database; db != nil {
+		if db.Type == "" {
+			db.Type = DatabaseTypePostgres
+		}
+		switch db.Type {
+		case DatabaseTypeSQLite:
+			if db.Path == "" {
+				db.Path = "pgrokd.db"
+			}
+		case DatabaseTypePostgres, DatabaseTypeMySQL:
+			if db.Host == "" || db.User == "" || db.Database == "" {
+				return nil, errors.Errorf("database type %q requires host, user, and database", db.Type)
+			}
+		default:
+			return nil, errors.Errorf("unsupported database type %q (expected one of: postgres, mysql, sqlite)", db.Type)
+		}
+	}
 
 	if idp := config.IdentityProvider; idp != nil {
 		if idp.RequiredDomain != "" && idp.FieldMapping.Email == "" {

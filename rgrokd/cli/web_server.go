@@ -9,13 +9,16 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/coreos/go-oidc"
 	"github.com/flamego/flamego"
 	"github.com/flamego/session"
-	"github.com/flamego/session/postgres"
+	sessionmysql "github.com/flamego/session/mysql"
+	sessionpostgres "github.com/flamego/session/postgres"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
@@ -80,33 +83,15 @@ func startWebServer(config *conf.Config, db *database.DB) {
 		})
 	}
 
-	var postgresDSN string
-	// Check if the host is a UNIX domain socket
-	if strings.HasPrefix(config.Database.Host, "/") {
-		postgresDSN = fmt.Sprintf("postgres://%s:%s@localhost:%d/%s?host=%s",
-			config.Database.User,
-			config.Database.Password,
-			config.Database.Port,
-			config.Database.Database,
-			config.Database.Host,
-		)
-	} else {
-		postgresDSN = fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
-			config.Database.User,
-			config.Database.Password,
-			config.Database.Host,
-			config.Database.Port,
-			config.Database.Database,
-		)
+	sessionIniter, sessionConfig, err := sessionBackendFor(config.Database)
+	if err != nil {
+		log.Fatal("Failed to configure session backend", "error", err.Error())
+		return
 	}
 	f.Use(session.Sessioner(
 		session.Options{
-			Initer: postgres.Initer(),
-			Config: postgres.Config{
-				DSN:       postgresDSN,
-				Table:     "sessions",
-				InitTable: true,
-			},
+			Initer: sessionIniter,
+			Config: sessionConfig,
 			Cookie: session.CookieOptions{
 				Name: "rgrokd_session",
 			},
@@ -251,8 +236,7 @@ func startWebServer(config *conf.Config, db *database.DB) {
 		"address", address,
 		"env", flamego.Env(),
 	)
-	err := http.ListenAndServe(address, f)
-	if err != nil {
+	if err := http.ListenAndServe(address, f); err != nil {
 		log.Fatal("Failed to start web server", "error", err)
 	}
 }
@@ -335,4 +319,36 @@ func handleOIDCCallback(ctx context.Context, idp *conf.IdentityProvider, redirec
 		}
 	}
 	return userInfo, nil
+}
+
+func sessionBackendFor(db *conf.Database) (session.Initer, any, error) {
+	const table = "sessions"
+	switch db.Type {
+	case conf.DatabaseTypePostgres:
+		var dsn string
+		// Check if the host is a UNIX domain socket
+		if strings.HasPrefix(db.Host, "/") {
+			dsn = fmt.Sprintf("postgres://%s:%s@localhost:%d/%s?host=%s",
+				db.User, db.Password, db.Port, db.Database, db.Host)
+		} else {
+			dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
+				db.User, db.Password, db.Host, db.Port, db.Database)
+		}
+		return sessionpostgres.Initer(), sessionpostgres.Config{DSN: dsn, Table: table, InitTable: true}, nil
+	case conf.DatabaseTypeMySQL:
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=UTC&charset=utf8mb4",
+			db.User, db.Password, db.Host, db.Port, db.Database)
+		return sessionmysql.Initer(), sessionmysql.Config{DSN: dsn, Table: table, InitTable: true}, nil
+	case conf.DatabaseTypeSQLite:
+		// flamego/session/sqlite would also register a "sqlite" database/sql
+		// driver, which conflicts at startup with the one glebarez/sqlite
+		// registers for GORM. Store sessions on the filesystem instead —
+		// the directory lives next to the sqlite DB file.
+		dir := strings.TrimSuffix(db.Path, filepath.Ext(db.Path)) + "-sessions"
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, nil, errors.Wrapf(err, "create session dir %q", dir)
+		}
+		return session.FileIniter(), session.FileConfig{RootDir: dir}, nil
+	}
+	return nil, nil, errors.Errorf("unsupported database type %q", db.Type)
 }

@@ -26,13 +26,28 @@ sshd:
   # The listening port of the SSH server.
   port: 2222
 
-# Settings for the database.
+# Settings for the database. Supported backends: "postgres" (default), "mysql", "sqlite".
 database:
+  type: "postgres"
   host: "localhost"
   port: 5432
   user: "REDACTED"
   password: "REDACTED"
   database: "rgrokd"
+
+# # MySQL example:
+# database:
+#   type: "mysql"
+#   host: "localhost"
+#   port: 3306
+#   user: "REDACTED"
+#   password: "REDACTED"
+#   database: "rgrokd"
+
+# # SQLite example (single-file, no external service):
+# database:
+#   type: "sqlite"
+#   path: "./rgrokd.db"
 
 # Settings for the identity provider.
 identity_provider:

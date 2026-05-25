@@ -5,6 +5,7 @@ dist
 # Configuration and application files
 /rgrokd.yml
 /rgrok.yml
+/rgrokd.db
 .direnv
 .idea
 .task

@@ -8,7 +8,9 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
+	"github.com/glebarez/sqlite"
 	"github.com/pkg/errors"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -51,12 +53,12 @@ func New(logWriter io.Writer, config *conf.Database) (*DB, error) {
 		},
 	)
 
-	dsn := fmt.Sprintf(
-		"user='%s' password='%s' host='%s' port='%d' dbname='%s' search_path='public' application_name='rgrokd' client_encoding=UTF8",
-		config.User, config.Password, config.Host, config.Port, config.Database,
-	)
+	dialector, err := dialectorFor(config)
+	if err != nil {
+		return nil, err
+	}
 	db, err := gorm.Open(
-		postgres.Open(dsn),
+		dialector,
 		&gorm.Config{
 			SkipDefaultTransaction: true,
 			NowFunc: func() time.Time {
@@ -81,6 +83,24 @@ func New(logWriter io.Writer, config *conf.Database) (*DB, error) {
 		return nil, errors.Wrap(err, "auto migrate")
 	}
 	return &DB{db}, nil
+}
+
+func dialectorFor(config *conf.Database) (gorm.Dialector, error) {
+	switch config.Type {
+	case conf.DatabaseTypePostgres:
+		return postgres.Open(fmt.Sprintf(
+			"user='%s' password='%s' host='%s' port='%d' dbname='%s' search_path='public' application_name='rgrokd' client_encoding=UTF8",
+			config.User, config.Password, config.Host, config.Port, config.Database,
+		)), nil
+	case conf.DatabaseTypeMySQL:
+		return mysql.Open(fmt.Sprintf(
+			"%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=UTC&charset=utf8mb4",
+			config.User, config.Password, config.Host, config.Port, config.Database,
+		)), nil
+	case conf.DatabaseTypeSQLite:
+		return sqlite.Open(config.Path), nil
+	}
+	return nil, errors.Errorf("unsupported database type %q", config.Type)
 }
 
 // gormLogger is a wrapper of io.Writer for the GORM's logger.Writer.
