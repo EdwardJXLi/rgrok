@@ -41,7 +41,7 @@ const (
 
 type Database struct {
 	// Type is the database backend: "postgres", "mysql", or "sqlite".
-	// Defaults to "postgres" when empty.
+	// Defaults to "sqlite" when empty.
 	Type string `yaml:"type"`
 
 	// Path is the file path for sqlite. Ignored for other backends.
@@ -95,12 +95,12 @@ func Load(configPath string) (*Config, error) {
 
 	if db := config.Database; db != nil {
 		if db.Type == "" {
-			db.Type = DatabaseTypePostgres
+			db.Type = DatabaseTypeSQLite
 		}
 		switch db.Type {
 		case DatabaseTypeSQLite:
 			if db.Path == "" {
-				db.Path = "pgrokd.db"
+				db.Path = "rgrokd.db"
 			}
 		case DatabaseTypePostgres, DatabaseTypeMySQL:
 			if db.Host == "" || db.User == "" || db.Database == "" {

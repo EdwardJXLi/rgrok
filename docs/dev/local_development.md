@@ -1,59 +1,45 @@
 # Set up your development environment
 
-The rgrok is built and runs as a single binary and meant to be cross platform. Therefore, you should be able to develop rgrok in any major platforms you prefer. However, this guide will focus on macOS only.
+rgrok is built and runs as a single binary and meant to be cross platform. Therefore, you should be able to develop rgrok on any major platform you prefer.
+
+The fastest path is the included Nix shell — `nix-shell` (or `direnv allow`) at the repo root drops you into an environment with all dependencies, and the default SQLite backend means no database setup is needed at all.
 
 ## Step 1: Install dependencies
 
 The development of rgrok has the following dependencies:
 
 - [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) (v2 or higher)
-- [Go](https://go.dev/doc/install) (v1.20 or higher)
-- [pnpm](https://pnpm.io/installation) (v8 or higher)
+- [Go](https://go.dev/doc/install) (v1.25 or higher)
+- [pnpm](https://pnpm.io/installation) (v10 or higher)
 - [Task](https://taskfile.dev/installation/) (v3)
 - [Overmind](https://github.com/DarthSim/overmind#installation) (v2)
-- [PostgreSQL](https://wiki.postgresql.org/wiki/Detailed_installation_guides) (v10 or higher)
+- *(Optional)* [PostgreSQL](https://wiki.postgresql.org/wiki/Detailed_installation_guides) (v10+) or MySQL — only needed if you want to test those backends or run the integration suite.
 
-1. Install [Homebrew](https://brew.sh/).
-1. Install dependencies:
+On macOS via Homebrew:
 
-    ```bash
-    brew install git go pnpm go-task overmind postgresql@15
-    ```
+```bash
+brew install git go pnpm go-task overmind
+# Optional, only for the postgres backend / integration tests:
+# brew install postgresql@15 && brew services start postgresql@15
+```
 
-1. Configure PostgreSQL to start automatically:
+Or on any platform with Nix:
 
-    ```bash
-    brew services start postgresql@15
-    ```
+```bash
+nix-shell    # everything above (and postgres for integration tests) is provided
+```
 
-1.  Ensure `psql`, the PostgreSQL command line client, is on your `$PATH`.
+## Step 2: (Optional) Initialize a PostgreSQL database
 
-## Step 2: Initialize your database
+Only needed if you set `database.type: postgres` in your config. With the default `sqlite` backend you can skip this step entirely.
 
-You need a fresh Postgres database and a database user that has full ownership of that database.
-
-1. Create a database for the current Unix user:
-
-    ```bash
-    createdb
-    ```
-
-2. Create the user and password:
-
-    ```bash
-    createuser --superuser rgrokd
-    psql -c "ALTER USER rgrokd WITH PASSWORD 'rgrokd';"
-    ```
-
-3. Create the database:
-
-    ```bash
-    createdb --owner=rgrokd --encoding=UTF8 --template=template0 rgrokd
-    ```
+```bash
+createuser --superuser rgrokd
+psql -c "ALTER USER rgrokd WITH PASSWORD 'rgrokd';"
+createdb --owner=rgrokd --encoding=UTF8 --template=template0 rgrokd
+```
 
 ## Step 3: Get the code
-
-Generally, you don't need a full clone, so set `--depth` to `10`:
 
 ```bash
 # HTTPS
@@ -82,11 +68,8 @@ sshd:
   port: 2222
 
 database:
-  host: "localhost"
-  port: 5432
-  user: "rgrokd"
-  password: "rgrokd"
-  database: "rgrokd"
+  type: "sqlite"
+  path: "./rgrokd.db"
 
 identity_provider:
   type: "oidc"
@@ -98,6 +81,18 @@ identity_provider:
     identifier: "email"
     display_name: "name"
     email: "email"
+```
+
+If you'd rather use the postgres backend you set up in Step 2, swap the `database:` block for:
+
+```yaml
+database:
+  type: "postgres"
+  host: "localhost"
+  port: 5432
+  user: "rgrokd"
+  password: "rgrokd"
+  database: "rgrokd"
 ```
 
 ## Step 5: Start the servers
@@ -112,6 +107,6 @@ Then, visit http://localhost:3320!
 
 Few things to note:
 
-- The web, proxy and SSHD servers of the rgrokd are started
-- No need to access the Vite server for the rgrokd web app as all requests to it are proxyed by the rgrokd web server
+- The web, proxy and SSHD servers of rgrokd are started
+- No need to access the Vite server for the rgrokd web app as all requests to it are proxied by the rgrokd web server
 - A [mock OIDC server](../../integration-tests/oidc-server/) is started for your convenience

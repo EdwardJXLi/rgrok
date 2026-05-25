@@ -13,6 +13,12 @@ proxy:
   scheme: "http"
   # The domain name of the proxy URLs.
   domain: "localhost:3000"
+  # How HTTP tunnel subdomains are assigned:
+  #   "random" (default) — a fresh cryptographically random subdomain per tunnel session.
+  #   "stable"           — each user gets one fixed subdomain (upstream pgrok behavior).
+  subdomain_strategy: "random"
+  # Length of the generated label when subdomain_strategy is "random". Default: 12.
+  # random_subdomain_length: 12
   # Optional settings for the TCP proxy.
   tcp:
     # The domain name of the proxy URLs - defaults to proxy.domain value
@@ -26,14 +32,19 @@ sshd:
   # The listening port of the SSH server.
   port: 2222
 
-# Settings for the database. Supported backends: "postgres" (default), "mysql", "sqlite".
+# Settings for the database. Supported backends: "sqlite" (default), "postgres", "mysql".
 database:
-  type: "postgres"
-  host: "localhost"
-  port: 5432
-  user: "REDACTED"
-  password: "REDACTED"
-  database: "rgrokd"
+  type: "sqlite"
+  path: "./rgrokd.db"
+
+# # Postgres example:
+# database:
+#   type: "postgres"
+#   host: "localhost"
+#   port: 5432
+#   user: "REDACTED"
+#   password: "REDACTED"
+#   database: "rgrokd"
 
 # # MySQL example:
 # database:
@@ -43,11 +54,6 @@ database:
 #   user: "REDACTED"
 #   password: "REDACTED"
 #   database: "rgrokd"
-
-# # SQLite example (single-file, no external service):
-# database:
-#   type: "sqlite"
-#   path: "./rgrokd.db"
 
 # Settings for the identity provider.
 identity_provider:

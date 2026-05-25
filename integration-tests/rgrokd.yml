@@ -8,6 +8,7 @@ proxy:
 sshd:
   port: 2222
 database:
+  type: "postgres"
   host: "localhost"
   port: 5432
   user: "postgres"
