@@ -18,8 +18,8 @@ export default function DashboardPage() {
                 <div className="flex h-16 justify-between">
                   <div className="flex">
                     <div className="flex flex-shrink-0 items-center">
-                      <img className="block h-8 w-auto lg:hidden" src="/rgrok.svg" />
-                      <img className="hidden h-8 w-auto lg:block" src="/rgrok.svg" />
+                      <img className="block h-8 w-auto lg:hidden" src="/rgrok.svg" alt="rgrok" />
+                      <img className="hidden h-8 w-auto lg:block" src="/rgrok.svg" alt="rgrok" />
                     </div>
                     <div className="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
                       {navigation.map((item) => (
