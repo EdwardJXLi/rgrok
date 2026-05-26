@@ -2,7 +2,7 @@
 
 ## What is rgrok?
 
-rgrok is a server-side fork of [pgrok](https://github.com/pgrok/pgrok) that adds **cryptographically random subdomains** plus a handful of quality-of-life improvements (SQLite & MySQL backends, single-binary deploys, etc.).
+rgrok is a server-side fork of [pgrok](https://github.com/pgrok/pgrok) that adds **cryptographically random subdomains (i.e. `http://a8k3n2m4.example.com`)** plus a handful of quality-of-life improvements (SQLite & MySQL backends, single-binary deploys, etc.).
 
 Other than that, rgrok behaves just like pgrok — a multi-tenant HTTP/TCP reverse tunnel built on SSH remote port forwarding, gated by your SSO through OIDC protocol.
 
