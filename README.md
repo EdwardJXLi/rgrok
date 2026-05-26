@@ -1,155 +1,60 @@
-![rgrok banner](https://user-images.githubusercontent.com/2946214/227126410-3e9dae19-d0c0-4a96-9040-1322e389c8db.png)
+# rgrok - cryptographically random pgrok
 
-<div align="center">
-  <h3>Poor man's ngrok — random-subdomain fork</h3>
-</div>
+## What is rgrok?
 
-## What?
+rgrok is a server-side fork of [pgrok](https://github.com/pgrok/pgrok) that adds **cryptographically random subdomains** plus a handful of quality-of-life improvements (SQLite & MySQL backends, single-binary deploys, etc.).
 
-rgrok is a multi-tenant HTTP/TCP reverse tunnel solution through remote port forwarding from the SSH protocol. It is a server-side fork of [pgrok](https://github.com/pgrok/pgrok); the upstream `pgrok` client binary continues to work against an `rgrokd` server (and vice versa for the wire-protocol-compatible parts).
+Other than that, rgrok behaves just like pgrok — a multi-tenant HTTP/TCP reverse tunnel built on SSH remote port forwarding, gated by your SSO through OIDC protocol.
 
-The fork's defining differences from upstream:
+## Quick start (local)
 
-- **Per-tunnel cryptographically random subdomains** by default — each `rgrok http` (or `pgrok http`) invocation gets a fresh unguessable URL. The upstream per-user stable-subdomain mode is still available behind `proxy.subdomain_strategy: stable`.
-- **SQLite by default** — no external database required. Postgres and MySQL are still supported via `database.type`.
-
-This is intended for small teams that need to expose the local development environment to the public internet, and you need to bring your own domain name and SSO provider. Gated by your SSO through OIDC protocol.
-
-Think of this as a bare-bones alternative to commercial tunneling services. Trying to put this behind a production system will blow up your SLA. For individuals and production systems, just buy ngrok.
-
-## Why?
-
-Stable subdomains and SSO are two things too expensive elsewhere. Random unguessable URLs are nice on top.
-
-Copy, paste, and run is the best UX for everyone.
-
-## How?
-
-Before you get started, make sure you have the following:
-
-1. A domain name (e.g. `example.com`, this will be used as the example throughout this section).
-1. A server (dedicated server, VPS) with a public IP address (e.g. `111.33.5.14`).
-1. An SSO provider (e.g. Google, JumpCloud, Okta, GitLab, Keycloak) that allows you to create OIDC clients.
-1. *(Optional)* A PostgreSQL or MySQL server if you don't want the default SQLite backend.
-
-> [!NOTE]
-> 1. All values used in this document are just examples, substitute based on your setup.
-> 1. All examples in this document use HTTP for brevity, you may refer to our example walkthrough of [setting HTTPS with Caddy and Cloudflare](./docs/admin/https.md).
-
-### Set up the server (`rgrokd`)
-
-1. Add the following DNS records for your domain name:
-    1. `A` record for `example.com` to `111.33.5.14` (with **DNS only** if using Cloudflare)
-    1. `A` record for `*.example.com` to `111.33.5.14` (with **DNS only** if using Cloudflare)
-1. Set up the server with the [single binary](./docs/admin/single-binary.md), [Docker](./docs/admin/docker.md#standalone-docker-container) or [Docker Compose](./docs/admin/docker.md#docker-compose).
-1. Alter your network security policy (if applicable) to allow inbound requests to port `2222` from `0.0.0.0/0` (anywhere).
-1. [Download and install Caddy 2](https://caddyserver.com/docs/install) on your server, and use the following Caddyfile config:
-    ```caddyfile
-    http://example.com {
-        reverse_proxy * localhost:3320
-    }
-
-    http://*.example.com {
-        reverse_proxy * localhost:3000
-    }
-    ```
-1. Create a new OIDC client in your SSO with the **Redirect URI** to be `http://example.com/-/oidc/callback`.
-
-### Set up the client (`rgrok`)
-
-1. Go to http://example.com, authenticate with your SSO to obtain a token. With the default random-subdomain strategy, the URL is assigned per session (printed by the client on connect); with the stable strategy, your dashboard shows your fixed subdomain (e.g. `http://unknwon.example.com`).
-1. Download the latest version of `rgrok` from the [Releases](https://github.com/EdwardJXLi/rgrok/releases) page. Upstream `pgrok` binaries also work — the wire protocol is unchanged.
-1. Initialize a `rgrok.yml` file (assuming you want to forward requests to `http://localhost:3000`):
-    ```sh
-    rgrok init --remote-addr example.com:2222 --forward-addr http://localhost:3000 --token {YOUR_TOKEN}
-    ```
-    - By default, the config file is created under the [standard user configuration directory (`XDG_CONFIG_HOME`)](https://github.com/adrg/xdg):
-        - macOS: `~/Library/Application Support/rgrok/rgrok.yml`
-        - Linux: `~/.config/rgrok/rgrok.yml`
-        - Windows: `%LOCALAPPDATA%\rgrok\rgrok.yml`
-    - Use `--config` flag to specify a different path for the config file.
-1. Launch the client by executing the `rgrok` or `rgrok http` command.
-    - By default, `rgrok` expects the `rgrok.yml` is available under the standard user configuration directory, or under the home directory (`~/.rgrok/rgrok.yml`). Use `--config` flag to specify a different path for the config file.
-    - Use the `--debug` flag to turn on debug logging.
-    - Upon successful startup, you should see a log looks like:
-        ```
-        🎉 You're ready to go live at http://a8k3n2m4p9qr.example.com! remote=example.com:2222
-        ```
-1. Now visit the URL.
-
-As a special case, the first argument of the `rgrok http` can be used to specify forward address, e.g.
-
-```
-rgrok http 8080
+```sh
+git clone https://github.com/EdwardJXLi/rgrok.git
+cd rgrok
+nix-shell                # or install Go, pnpm, task, overmind manually
+# write a minimal rgrokd.yml (see docs/dev/local_development.md)
+overmind start           # rgrokd + Vite + mock OIDC, visit http://localhost:3320
 ```
 
-#### Raw TCP tunnels
+Full local-dev walkthrough: [`docs/dev/local_development.md`](docs/dev/local_development.md).
 
-> [!IMPORTANT]
-> You need to alter the server network security policy (if applicable) to allow additional inbound requests to port range 10000-15000 from `0.0.0.0/0` (anywhere).
+## Production setup
 
-Use the `tcp` subcommand to tunnel raw TCP traffic:
+The deployment story (DNS, reverse proxy, OIDC client, single binary / Docker / Docker Compose) is **identical to upstream pgrok** — just substitute `rgrok` / `rgrokd` for the binary names and `ghcr.io/EdwardJXLi/rgrokd` for the image.
 
-```
-rgrok tcp 5432
-```
+Follow the upstream guide → **[pgrok README — How?](https://github.com/pgrok/pgrok#how)**
 
-Upon successful startup, you should see a log looks like:
+For rgrok-specific bits:
 
-```
-🎉 You're ready to go live at tcp://example.com:10086! remote=example.com:2222
-```
+- Docker image / tags: [`docs/admin/docker.md`](docs/admin/docker.md)
+- Single binary: [`docs/admin/single-binary.md`](docs/admin/single-binary.md)
+- HTTPS with Caddy + Cloudflare: [`docs/admin/https.md`](docs/admin/https.md)
+- Example config: [`rgrokd.example.yml`](rgrokd.example.yml)
 
-The assigned TCP port on the server side is semi-stable, such that the same port number is used when still available.
+## Client setup
 
-#### Override config options
+**Just install the upstream `pgrok` client** the server-side changes are fully compatible with the vanilla client.
 
-Following config options can be overridden through CLI flags for both `http` and `tcp` subcommands:
-
-- `--remote-addr, -r` -> `remote_addr`
-- `--forward-addr, -f` -> `forward_addr`
-- `--token, -t` -> `token`
-
-#### HTTP dynamic forwards
-
-Typical HTTP reverse tunnel solutions only support forwarding requests to a single address, `rgrok` can be configured to have dynamic forward rules when tunneling HTTP requests.
-
-For example, if your local frontend is running at `http://localhost:3000` but some gRPC endpoints need to talk to the backend directly at `http://localhost:8080`:
-
-```yaml
-dynamic_forwards: |
-  /api http://localhost:8080
-  /hook http://localhost:8080
+```sh
+# macOS / Linux
+brew install pgrok
+# or download a binary from https://github.com/pgrok/pgrok/releases
 ```
 
-Then all requests prefixed with the path `/api` and `/hook` will be forwarded to `http://localhost:8080` and all the rest are forwarded to the `forward_addr` (`http://localhost:3000`).
+Then point it at your rgrokd server (substitute `example.com` for your own domain and `{YOUR_TOKEN}` for the token shown in the rgrokd web UI after SSO login):
 
-### Vanilla SSH
+```sh
+pgrok init \
+  --remote-addr example.com:2222 \
+  --forward-addr http://localhost:3000 \
+  --token {YOUR_TOKEN}
 
-Because the standard SSH protocol is used for tunneling, you may well just use the vanilla SSH client.
+pgrok http        # or `pgrok http 8080` to forward a different port
+pgrok tcp 5432    # raw TCP tunnel
+```
 
-1. Go to http://example.com, authenticate with your SSO to obtain the token. (Note: vanilla SSH can only learn the bound port, not the assigned random subdomain — you'll need the `rgrok` or upstream `pgrok` client for that.)
-1. Launch the client by executing the `ssh -N -R 0::3000 example.com -p 2222` command:
-    1. Enter the token as your password.
-    1. Use the `-v` flag to turn on debug logging.
-    1. Upon successful startup, you should see a log looks like:
-        ```
-        Allocated port 22487 for remote forward to :3000
-        ```
-1. Now visit the URL.
+On startup you should see a log line like:
 
-## Explain it to me
-
-![rgrok network diagram](https://user-images.githubusercontent.com/2946214/229048941-cc12139d-f250-49fa-806d-19c27996ee09.png)
-
-## Contributing
-
-Please read through our [contributing guide](.github/contributing.md) and [set up your development environment](docs/dev/local_development.md).
-
-## Credits
-
-This is a fork of [pgrok](https://github.com/pgrok/pgrok) by Joe Chen. The upstream project wouldn't be possible without reading [function61/holepunch-server](https://github.com/function61/holepunch-server), [function61/holepunch-client](https://github.com/function61/holepunch-client), and [TCP/IP Port Forwarding](https://github.com/apache/mina-sshd/blob/master/docs/technical/tcpip-forwarding.md).
-
-## License
-
-This project is under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
+```
+🎉 You're ready to go live at http://a8k3n2m4.example.com! remote=example.com:2222
+```
