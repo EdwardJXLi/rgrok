@@ -24,7 +24,6 @@ concurrency:
 
 env:
   GOPROXY: "https://proxy.golang.org"
-  IMAGE: ghcr.io/${{ github.repository_owner }}/rgrokd
 
 permissions:
   contents: write
@@ -52,7 +51,6 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
           run_install: |
             - cwd: rgrokd/web
 
@@ -113,9 +111,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compute version and tags
+      - name: Compute image, version, and tags
         id: meta
         run: |
+          # Docker registry repo names must be lowercase; GitHub owner can be mixed-case.
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/rgrokd"
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
             VERSION="${VERSION#v}"
@@ -124,6 +124,7 @@ jobs:
             VERSION="$(git rev-parse --short HEAD)"
             TAGS="${IMAGE}:latest"
           fi
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
@@ -155,6 +156,6 @@ jobs:
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.IMAGE }}:${{ github.event_name == 'release' && steps.meta.outputs.version || 'latest' }}
+          image-ref: ${{ steps.meta.outputs.image }}:${{ github.event_name == 'release' && steps.meta.outputs.version || 'latest' }}
           exit-code: '1'
           ignore-unfixed: true
