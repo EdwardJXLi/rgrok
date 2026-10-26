@@ -49,9 +49,18 @@ func (c *Cluster) Set(host, alternative, forward string) (string, error) {
 
 func newProxy(forward string) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			r.URL.Scheme = "http"
-			r.URL.Host = forward
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.Out.URL.Scheme = "http"
+			r.Out.URL.Host = forward
+			// Tunnel query strings and ingress proxy metadata must reach the local service unchanged.
+			r.Out.URL.RawQuery = r.In.URL.RawQuery
+			r.Out.Header["X-Forwarded-For"] = r.In.Header["X-Forwarded-For"]
+			r.SetXForwarded()
+			for _, header := range []string{"Forwarded", "X-Forwarded-Host", "X-Forwarded-Proto"} {
+				if values, ok := r.In.Header[header]; ok {
+					r.Out.Header[header] = values
+				}
+			}
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			w.WriteHeader(http.StatusBadGateway)
