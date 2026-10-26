@@ -1,24 +1,26 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
-	"github.com/urfave/cli/v2"
-
-	"github.com/EdwardJXLi/rgrok/internal/strutil"
+	"github.com/urfave/cli/v3"
+	"unknwon.dev/x/anyx"
+	"unknwon.dev/x/logx"
 )
 
-func commandTCP(homeDir string) *cli.Command {
+func commandTCP(homeDir string, logger *logx.Logger) *cli.Command {
 	return &cli.Command{
-		Name:        "tcp",
-		Description: "Start a TCP proxy to a local address",
-		Action:      actionTCP,
+		Name:  "tcp",
+		Usage: "Start a TCP proxy to a local address",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return actionTCP(ctx, cmd, logger)
+		},
 		Flags: append(
-			commonFlags(homeDir),
+			commonFlags(homeDir, logger),
 			&cli.StringFlag{
 				Name:    "remote-addr",
 				Usage:   "The address of the remote SSH server",
@@ -28,8 +30,8 @@ func commandTCP(homeDir string) *cli.Command {
 				Name:    "forward-addr",
 				Usage:   "The address to forward requests to",
 				Aliases: []string{"f"},
-				Action: func(c *cli.Context, s string) error {
-					return c.Set("forward-addr", deriveTCPForwardAddress(s))
+				Action: func(_ context.Context, cmd *cli.Command, s string) error {
+					return cmd.Set("forward-addr", deriveTCPForwardAddress(s))
 				},
 			},
 			&cli.StringFlag{
@@ -62,43 +64,45 @@ func deriveTCPForwardAddress(addr string) string {
 	return addr
 }
 
-func actionTCP(c *cli.Context) error {
-	configPath := c.String("config")
+func actionTCP(ctx context.Context, cmd *cli.Command, logger *logx.Logger) error {
+	configPath := cmd.String("config")
 	config, err := loadConfig(configPath)
 	if err != nil {
-		log.Fatal("Failed to load config",
+		logger.FatalContext(ctx, "Failed to load config",
 			"config", configPath,
-			"error", err.Error(),
+			"error", err,
 		)
 	}
-	log.Debug("Loaded config", "file", configPath)
+	logger.Debug("Loaded config", "file", configPath)
 
-	forwardAddr := strutil.Coalesce(
-		deriveTCPForwardAddress(c.Args().First()),
-		c.String("forward-addr"),
+	forwardAddr := anyx.Coalesce(
+		deriveTCPForwardAddress(cmd.Args().First()),
+		cmd.String("forward-addr"),
 		config.ForwardAddr,
 	)
-	log.Info("Forward", "address", forwardAddr)
+	logger.Info("Forward", "address", forwardAddr)
 
 	cooldownAfter := time.Now().Add(time.Minute)
 	for failed := 0; ; failed++ {
 		err := tryConnect(
+			logger,
 			protocolTCP,
-			strutil.Coalesce(c.String("remote-addr"), config.RemoteAddr),
+			anyx.Coalesce(cmd.String("remote-addr"), config.RemoteAddr),
 			forwardAddr,
-			strutil.Coalesce(c.String("token"), config.Token),
+			anyx.Coalesce(cmd.String("token"), config.Token),
+			"", // No subdomain as TCP doesn't use it
 		)
 		if err != nil {
 			if time.Now().After(cooldownAfter) {
 				failed = 0
 			}
 			backoff := time.Duration(2<<(failed/3+1)) * time.Second
-			log.Error(
+			logger.Error(
 				fmt.Sprintf("Failed to connect to server, will reconnect in %s", backoff.String()),
 				"error", err.Error(),
 			)
 			if strings.Contains(err.Error(), "no supported methods remain") {
-				log.Fatal("Please double check your token and try again")
+				logger.FatalContext(ctx, "Please double check your token and try again")
 			}
 			time.Sleep(backoff)
 			cooldownAfter = time.Now().Add(time.Minute)

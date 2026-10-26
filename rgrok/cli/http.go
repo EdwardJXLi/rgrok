@@ -12,23 +12,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
+	"unknwon.dev/x/anyx"
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/dynamicforward"
-	"github.com/EdwardJXLi/rgrok/internal/strutil"
 )
 
-func commandHTTP(homeDir string) *cli.Command {
+func commandHTTP(homeDir string, logger *logx.Logger) *cli.Command {
 	return &cli.Command{
-		Name:        "http",
-		Description: "Start a HTTP proxy to local endpoints",
-		Action:      actionHTTP,
+		Name:  "http",
+		Usage: "Start a HTTP proxy to local endpoints",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return actionHTTP(ctx, cmd, logger)
+		},
 		Flags: append(
-			commonFlags(homeDir),
+			commonFlags(homeDir, logger),
 			&cli.StringFlag{
 				Name:    "remote-addr",
 				Usage:   "The address of the remote SSH server",
@@ -38,8 +40,8 @@ func commandHTTP(homeDir string) *cli.Command {
 				Name:    "forward-addr",
 				Usage:   "The address to forward requests to",
 				Aliases: []string{"f"},
-				Action: func(c *cli.Context, s string) error {
-					return c.Set("forward-addr", deriveHTTPForwardAddress(s))
+				Action: func(_ context.Context, cmd *cli.Command, s string) error {
+					return cmd.Set("forward-addr", deriveHTTPForwardAddress(s))
 				},
 			},
 			&cli.StringFlag{
@@ -47,27 +49,32 @@ func commandHTTP(homeDir string) *cli.Command {
 				Usage:   "The authentication token",
 				Aliases: []string{"t"},
 			},
+			&cli.StringFlag{
+				Name:    "subdomain",
+				Usage:   "Use this subdomain label for the tunnel URL (for example, staging)",
+				Aliases: []string{"s"},
+			},
 		),
 	}
 }
 
-func actionHTTP(c *cli.Context) error {
-	configPath := c.String("config")
+func actionHTTP(ctx context.Context, cmd *cli.Command, logger *logx.Logger) error {
+	configPath := cmd.String("config")
 	config, err := loadConfig(configPath)
 	if err != nil {
-		log.Fatal("Failed to load config",
+		logger.FatalContext(ctx, "Failed to load config",
 			"config", configPath,
-			"error", err.Error(),
+			"error", err,
 		)
 	}
-	log.Debug("Loaded config", "file", configPath)
+	logger.Debug("Loaded config", "file", configPath)
 
-	defaultForwardAddr := strutil.Coalesce(
-		deriveHTTPForwardAddress(c.Args().First()),
-		c.String("forward-addr"),
+	defaultForwardAddr := anyx.Coalesce(
+		deriveHTTPForwardAddress(cmd.Args().First()),
+		cmd.String("forward-addr"),
 		config.ForwardAddr,
 	)
-	log.Info("Default forward", "address", defaultForwardAddr)
+	logger.Info("Default forward", "address", defaultForwardAddr)
 
 	dynamicForwardRules := strings.Split(config.DynamicForwards, "\n")
 	dynamicForwards := make([]dynamicforward.Forward, 0, len(dynamicForwardRules))
@@ -78,7 +85,7 @@ func actionHTTP(c *cli.Context) error {
 
 		fields := strings.Fields(rule)
 		if len(fields) != 2 {
-			log.Debug("Skipped invalid dynamic forward rule", "rule", rule)
+			logger.Debug("Skipped invalid dynamic forward rule", "rule", rule)
 			continue
 		}
 
@@ -88,36 +95,38 @@ func actionHTTP(c *cli.Context) error {
 				Address: fields[1],
 			},
 		)
-		log.Debug("Added dynamic forward rule", "pathPrefix", fields[0], "forwardTo", fields[1])
+		logger.Debug("Added dynamic forward rule", "pathPrefix", fields[0], "forwardTo", fields[1])
 	}
-	forwardHandler, err := dynamicforward.New(log.Default(), defaultForwardAddr, dynamicForwards...)
+	forwardHandler, err := dynamicforward.New(logger, defaultForwardAddr, dynamicForwards...)
 	if err != nil {
-		log.Fatal("Failed to create forward handler", "error", err.Error())
+		logger.FatalContext(ctx, "Failed to create forward handler", "error", err)
 	}
 
 	s := httptest.NewServer(forwardHandler)
-	log.Debug("Capture server is running on", "url", s.URL)
+	logger.Debug("Capture server is running on", "url", s.URL)
 
 	surl, _ := url.Parse(s.URL)
 	cooldownAfter := time.Now().Add(time.Minute)
 	for failed := 0; ; failed++ {
 		err := tryConnect(
+			logger,
 			protocolHTTP,
-			strutil.Coalesce(c.String("remote-addr"), config.RemoteAddr),
+			anyx.Coalesce(cmd.String("remote-addr"), config.RemoteAddr),
 			surl.Host,
-			strutil.Coalesce(c.String("token"), config.Token),
+			anyx.Coalesce(cmd.String("token"), config.Token),
+			cmd.String("subdomain"),
 		)
 		if err != nil {
 			if time.Now().After(cooldownAfter) {
 				failed = 0
 			}
 			backoff := time.Duration(2<<(failed/3+1)) * time.Second
-			log.Error(
+			logger.Error(
 				fmt.Sprintf("Failed to connect to server, will reconnect in %s", backoff.String()),
 				"error", err.Error(),
 			)
 			if strings.Contains(err.Error(), "no supported methods remain") {
-				log.Fatal("Please double check your token and try again")
+				logger.FatalContext(ctx, "Please double check your token and try again")
 			}
 			time.Sleep(backoff)
 			cooldownAfter = time.Now().Add(time.Minute)
@@ -151,7 +160,7 @@ const (
 	protocolTCP  string = "tcp"
 )
 
-func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
+func tryConnect(logger *logx.Logger, protocol, remoteAddr, forwardAddr, token, subdomain string) error {
 	client, err := ssh.Dial(
 		"tcp",
 		remoteAddr,
@@ -167,14 +176,19 @@ func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
 		return errors.Wrap(err, "dial remote server")
 	}
 
+	defer func() { _ = client.Close() }()
+
 	// Hint the server before establishing the reverse tunnel
-	payload, err := json.Marshal(map[string]string{"protocol": protocol})
+	payload, err := json.Marshal(map[string]string{"protocol": protocol, "subdomain": subdomain})
 	if err != nil {
 		return errors.Wrap(err, "marshal payload")
 	}
-	_, _, err = client.SendRequest("hint", true, payload)
+	ok, reply, err := client.SendRequest("hint", true, payload)
 	if err != nil {
 		return errors.Wrap(err, "hint server")
+	}
+	if !ok {
+		return errors.Errorf("server rejected hint: %s", reply)
 	}
 
 	remoteListener, err := client.Listen("tcp", "127.0.0.1:0")
@@ -187,7 +201,7 @@ func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
 	var serverInfo struct {
 		HostURL string `json:"host_url"`
 	}
-	ok, reply, err := client.SendRequest("server-info", true, payload)
+	ok, reply, err = client.SendRequest("server-info", true, payload)
 	if err != nil {
 		return errors.Wrap(err, "query server info")
 	} else if !ok {
@@ -202,7 +216,7 @@ func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
 	if serverInfo.HostURL != "" {
 		message = fmt.Sprintf("🎉 You're ready to go live at %s!", serverInfo.HostURL)
 	}
-	log.Info(message, "remote", remoteAddr)
+	logger.Info(message, "remote", remoteAddr)
 	for {
 		remote, err := remoteListener.Accept()
 		if err != nil {
@@ -212,16 +226,16 @@ func tryConnect(protocol, remoteAddr, forwardAddr, token string) error {
 		forward, err := net.Dial("tcp", forwardAddr)
 		if err != nil {
 			_ = remote.Close()
-			log.Error("Failed to dial local forward", "error", err)
+			logger.Error("Failed to dial local forward", "error", err)
 			continue
 		}
-		log.Debug("Forwarding connection", "remote", remote.RemoteAddr(), "protocol", protocol)
+		logger.Debug("Forwarding connection", "remote", remote.RemoteAddr(), "protocol", protocol)
 
 		go func(remote, forward net.Conn) {
 			defer func() {
 				_ = remote.Close()
 				_ = forward.Close()
-				log.Debug("Forwarding connection closed", "remote", remote.RemoteAddr(), "protocol", protocol)
+				logger.Debug("Forwarding connection closed", "remote", remote.RemoteAddr(), "protocol", protocol)
 			}()
 
 			ctx, done := context.WithCancel(context.Background())

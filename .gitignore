@@ -9,6 +9,8 @@ dist
 .direnv
 .idea
 .task
+.envrc
+.moon/cache
 .vite
 CLAUDE.md
 

@@ -1,21 +1,26 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/charmbracelet/log"
+	charmlog "charm.land/log/v2"
 	"github.com/flamego/flamego"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"unknwon.dev/x/logx"
 )
 
 func main() {
+	logger := logx.New(charmlog.NewWithOptions(os.Stderr, charmlog.Options{ReportTimestamp: true}))
+
 	externalURL := flag.String("external-url", "http://localhost:9833", "The external URL of the server")
 	port := flag.Int("port", 9833, "The port to listen on")
 	flag.Parse()
@@ -62,7 +67,7 @@ func main() {
 
 	rs256, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		log.Fatal("Failed to generate RSA key", "error", err)
+		logger.FatalContext(context.Background(), "Failed to generate RSA key", "error", err)
 	}
 	f.Post("/oauth2/token", func(w http.ResponseWriter) error {
 		token := jwt.NewWithClaims(

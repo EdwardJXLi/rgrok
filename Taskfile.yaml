@@ -26,7 +26,7 @@ tasks:
       - go build -v -trimpath -o ./.bin/rgrokd ./rgrokd/cli
     sources:
       - go.mod
-      - rgrokd/cli/*.go
+      - rgrokd/cli/**/*.go
       - internal/**/*
     method: timestamp
   build-rgrokd-web:
@@ -37,7 +37,7 @@ tasks:
   build-rgrokd-release:
     desc: Build the release binary of rgrokd
     cmds:
-      - go build -v
+      - go build -v -tags prod
         -ldflags '
         -X "main.version={{.BUILD_VERSION}}"
         -X "main.commit={{.BUILD_COMMIT}}"

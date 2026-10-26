@@ -9,7 +9,7 @@ pkgs.mkShell {
     golangci-lint
     delve
 
-    nodejs_22
+    nodejs_24
     pnpm
 
     go-task

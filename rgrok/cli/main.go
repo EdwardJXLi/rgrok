@@ -1,21 +1,22 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
 
+	charmlog "charm.land/log/v2"
 	"github.com/adrg/xdg"
-
-	"github.com/charmbracelet/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/osutil"
 )
 
 var version = "0.0.0+dev"
 
-func commonFlags(homeDir string) []cli.Flag {
+func commonFlags(homeDir string, logger *logx.Logger) []cli.Flag {
 	configPath := filepath.Join(homeDir, ".rgrok", "rgrok.yml")
 	if !osutil.IsExist(configPath) {
 		xdgConfigPath, err := xdg.ConfigFile(filepath.Join("rgrok", "rgrok.yml"))
@@ -35,9 +36,11 @@ func commonFlags(homeDir string) []cli.Flag {
 			Name:    "debug",
 			Usage:   "Whether to enable debug mode",
 			Aliases: []string{"d"},
-			Action: func(c *cli.Context, b bool) error {
+			Action: func(_ context.Context, _ *cli.Command, b bool) error {
 				if b {
-					log.SetLevel(log.DebugLevel)
+					if h, ok := logger.Handler().(*charmlog.Logger); ok {
+						h.SetLevel(charmlog.DebugLevel)
+					}
 				}
 				return nil
 			},
@@ -46,25 +49,34 @@ func commonFlags(homeDir string) []cli.Flag {
 }
 
 func main() {
-	log.SetTimeFormat(time.DateTime)
+	logger := logx.New(
+		charmlog.NewWithOptions(
+			os.Stderr,
+			charmlog.Options{
+				TimeFormat:      time.DateTime,
+				ReportTimestamp: true,
+			},
+		),
+	)
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("Failed to home directory", "error", err.Error())
+		logger.FatalContext(context.Background(), "Failed to get home directory", "error", err)
 	}
 
-	app := cli.NewApp()
-	app.Name = "rgrok"
-	app.Usage = "Poor man's ngrok"
-	app.Version = version
-	app.DefaultCommand = "http"
-	app.Commands = []*cli.Command{
-		commandInit(homeDir),
-		commandHTTP(homeDir),
-		commandTCP(homeDir),
+	app := &cli.Command{
+		Name:           "rgrok",
+		Usage:          "Poor man's ngrok",
+		Version:        version,
+		DefaultCommand: "http",
+		Commands: []*cli.Command{
+			commandInit(homeDir, logger),
+			commandHTTP(homeDir, logger),
+			commandTCP(homeDir, logger),
+		},
+		Flags: commonFlags(homeDir, logger),
 	}
-	app.Flags = commonFlags(homeDir)
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		logger.FatalContext(context.Background(), "Failed to run rgrok", "error", err)
 	}
 }

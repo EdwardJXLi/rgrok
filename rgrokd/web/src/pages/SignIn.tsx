@@ -1,32 +1,36 @@
 import { useLoaderData } from "react-router-dom";
+import { Button } from "@/components/retroui/Button";
+import { Card } from "@/components/retroui/Card";
+import { Text } from "@/components/retroui/Text";
+import ThemeToggle from "../components/ThemeToggle";
 import { FetchIdentityProviderResponse } from "../types";
 
 export default function SignInPage() {
   const data = useLoaderData() as FetchIdentityProviderResponse;
-  if (data.error) {
-    return <p>{data.error}</p>;
-  }
-  return (
-    <>
-      <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <img className="mx-auto h-10 w-auto" src="/rgrok.svg" alt="rgrok" />
-          <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-            Sign in to your account
-          </h2>
-        </div>
 
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <div>
-            <a
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              href={`${data.authURL}`}
-            >
-              Continue with {data.displayName}
-            </a>
-          </div>
-        </div>
+  return (
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-6 py-12">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
       </div>
-    </>
+      <div className="flex w-full max-w-sm flex-col items-center">
+        <img className="h-12 w-auto" src="/rgrok.svg" alt="rgrok" />
+        <Text as="h2" className="mt-6 text-center">
+          Sign in to rgrok
+        </Text>
+
+        <Card className="mt-8 block w-full">
+          <Card.Content>
+            {data.error ? (
+              <Text className="text-center text-muted-foreground">{data.error}</Text>
+            ) : (
+              <Button className="w-full" render={<a href={data.authURL} />}>
+                Continue with {data.displayName}
+              </Button>
+            )}
+          </Card.Content>
+        </Card>
+      </div>
+    </div>
   );
 }

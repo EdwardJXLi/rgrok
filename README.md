@@ -58,3 +58,13 @@ On startup you should see a log line like:
 ```
 🎉 You're ready to go live at http://a8k3n2m4.example.com! remote=example.com:2222
 ```
+
+To request a specific HTTP subdomain, use a pgrok client that supports `--subdomain`:
+
+```sh
+pgrok http --subdomain staging 3000
+```
+
+This requests `http://staging.example.com`. The server uses the supplied name as the complete subdomain label.
+Names must contain 1 to 63 lowercase letters, digits, or hyphens, with no leading or trailing hyphen.
+If the hostname is already in use, the tunnel fails.

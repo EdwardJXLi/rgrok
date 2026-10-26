@@ -1,0 +1,91 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: "go"
+stack: "backend"
+id: "rgrokd"
+
+fileGroups:
+  sources:
+    - "/rgrokd/**/*.go"
+    - "/internal/**/*.go"
+  tests:
+    - "/rgrokd/**/*_test.go"
+    - "/internal/**/*_test.go"
+  configs:
+    - "/go.mod"
+    - "/go.sum"
+    - "/.golangci.yml"
+  assets:
+    - "/rgrokd/cli/internal/web/dist/**/*"
+
+tasks:
+  build:
+    command: "go build -v -trimpath -o .bin/rgrokd ./rgrokd/cli"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+    outputs:
+      - "/.bin/rgrokd"
+
+  build-prod:
+    command: "go build -v -trimpath -tags prod -o .bin/rgrokd ./rgrokd/cli"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+      - "@group(assets)"
+    outputs:
+      - "/.bin/rgrokd"
+    deps:
+      - "rgrokd-web:build"
+
+  test:
+    command: "go test -cover -race ./..."
+    inputs:
+      - "@group(sources)"
+      - "@group(tests)"
+      - "@group(configs)"
+
+  lint:
+    command: "golangci-lint run"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  format:
+    command: "golangci-lint fmt"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+
+  server:
+    command: ".bin/rgrokd"
+    preset: "server"
+    env:
+      TTY_FORCE: "1"
+
+  oidc-server:
+    command: "go run ./integration-tests/oidc-server"
+    preset: "server"
+
+  dev:
+    command: ".bin/rgrokd"
+    env:
+      TTY_FORCE: "1"
+    options:
+      runInCI: false
+      persistent: true
+    deps:
+      - "build"
+      - "rgrokd-web:dev"
+      - "oidc-server"
+
+  prod:
+    command: ".bin/rgrokd"
+    env:
+      TTY_FORCE: "1"
+    options:
+      runInCI: false
+      persistent: true
+    deps:
+      - "build-prod"
+      - "oidc-server"

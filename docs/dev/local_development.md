@@ -1,37 +1,36 @@
 # Set up your development environment
 
-rgrok is built and runs as a single binary and meant to be cross platform. Therefore, you should be able to develop rgrok on any major platform you prefer.
-
-The fastest path is the included Nix shell — `nix-shell` (or `direnv allow`) at the repo root drops you into an environment with all dependencies, and the default SQLite backend means no database setup is needed at all.
+rgrok runs as one binary and supports development on Linux, macOS, and Windows.
+The included Nix shell provides the tools for the Task and Overmind workflow.
+The default SQLite backend needs no separate database server.
 
 ## Step 1: Install dependencies
 
-The development of rgrok has the following dependencies:
+Use these tools:
 
-- [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) (v2 or higher)
-- [Go](https://go.dev/doc/install) (v1.25 or higher)
-- [pnpm](https://pnpm.io/installation) (v10 or higher)
-- [Task](https://taskfile.dev/installation/) (v3)
-- [Overmind](https://github.com/DarthSim/overmind#installation) (v2)
-- *(Optional)* [PostgreSQL](https://wiki.postgresql.org/wiki/Detailed_installation_guides) (v10+) or MySQL — only needed if you want to test those backends or run the integration suite.
+- [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) v2 or higher.
+- [Go](https://go.dev/doc/install) v1.26 or higher.
+- [Node.js](https://nodejs.org/) v24 or higher.
+- [pnpm](https://pnpm.io/installation) v11, as pinned in `package.json`.
+- [Moon](https://moonrepo.dev/docs/install) v2 or higher, or [Task](https://taskfile.dev/installation/) v3 with [Overmind](https://github.com/DarthSim/overmind#installation) v2.
+- PostgreSQL or MySQL, if you use either backend. The integration suite needs PostgreSQL.
 
-On macOS via Homebrew:
+On macOS, install the tools with Homebrew:
 
 ```bash
-brew install git go pnpm go-task overmind
-# Optional, only for the postgres backend / integration tests:
-# brew install postgresql@15 && brew services start postgresql@15
+brew install git go node pnpm moon go-task overmind
 ```
 
-Or on any platform with Nix:
+For the Task and Overmind workflow, enter the Nix shell:
 
 ```bash
-nix-shell    # everything above (and postgres for integration tests) is provided
+nix-shell
 ```
 
 ## Step 2: (Optional) Initialize a PostgreSQL database
 
-Only needed if you set `database.type: postgres` in your config. With the default `sqlite` backend you can skip this step entirely.
+If you use `database.type: postgres`, create the database and user.
+If you use SQLite, skip this step.
 
 ```bash
 createuser --superuser rgrokd
@@ -50,11 +49,11 @@ git clone --depth 10 git@github.com:EdwardJXLi/rgrok.git
 ```
 
 > [!NOTE]
-> The repository has Go modules enabled, please clone to somewhere outside of your `$GOPATH`.
+> Clone the repository outside your `$GOPATH`.
 
 ## Step 4: Initialize `rgrokd.yml`
 
-Create a `rgrokd.yml` file under the repository root and put the following configuration:
+Create `rgrokd.yml` in the repository root with this configuration:
 
 ```yaml
 external_url: "http://localhost:3320"
@@ -83,7 +82,7 @@ identity_provider:
     email: "email"
 ```
 
-If you'd rather use the postgres backend you set up in Step 2, swap the `database:` block for:
+For the PostgreSQL backend, replace the `database:` block with:
 
 ```yaml
 database:
@@ -97,16 +96,31 @@ database:
 
 ## Step 5: Start the servers
 
-The following command will start processes defined in the [`Procfile`](../../Procfile) and automatically recompile and restart these servers if related files are changed:
+Install the web dependencies:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+Start the web, proxy, SSH, Vite, and mock OIDC servers:
+
+```bash
+moon run rgrokd:dev
+```
+
+Visit http://localhost:3320. The rgrokd web server forwards asset requests to Vite.
+After you change Go source, run `moon run rgrokd:dev` again to rebuild the server.
+
+For automatic Go rebuilds with Task and Overmind, use:
 
 ```bash
 overmind start
 ```
 
-Then, visit http://localhost:3320!
+To embed the web app in a binary with the `prod` build tag, use:
 
-Few things to note:
+```bash
+moon run rgrokd:prod
+```
 
-- The web, proxy and SSHD servers of rgrokd are started
-- No need to access the Vite server for the rgrokd web app as all requests to it are proxied by the rgrokd web server
-- A [mock OIDC server](../../integration-tests/oidc-server/) is started for your convenience
+This command also starts the mock OIDC server.

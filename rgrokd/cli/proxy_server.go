@@ -4,15 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/reverseproxy"
 )
 
-func startProxyServer(logger *log.Logger, port int, proxies *reverseproxy.Cluster) {
-	logger = logger.WithPrefix("proxy")
-
+func newProxyServer(logger *logx.Logger, port int, proxies *reverseproxy.Cluster) *http.Server {
 	f := flamego.New()
 	f.Use(flamego.Recovery())
 	f.Any("/{**}", func(w http.ResponseWriter, r *http.Request) {
@@ -27,8 +25,8 @@ func startProxyServer(logger *log.Logger, port int, proxies *reverseproxy.Cluste
 
 	address := fmt.Sprintf("0.0.0.0:%d", port)
 	logger.Info("Server listening on", "address", address)
-	err := http.ListenAndServe(address, f)
-	if err != nil {
-		logger.Fatal("Failed to start server", "error", err)
+	return &http.Server{
+		Addr:    address,
+		Handler: f,
 	}
 }

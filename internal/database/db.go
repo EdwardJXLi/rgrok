@@ -2,18 +2,17 @@ package database
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
 	"github.com/glebarez/sqlite"
 	"github.com/pkg/errors"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/conf"
 )
@@ -24,30 +23,20 @@ type DB struct {
 }
 
 // New returns a new database handle with given configuration.
-func New(logWriter io.Writer, config *conf.Database) (*DB, error) {
+func New(logger *logx.Logger, config *conf.Database) (*DB, error) {
 	if config == nil {
 		return nil, errors.New("no database config provided")
 	}
 
-	level := logger.Info
+	level := gormlogger.Info
 	if flamego.Env() == flamego.EnvTypeProd {
-		level = logger.Warn
+		level = gormlogger.Warn
 	}
 
 	// NOTE: AutoMigrate does not respect logger passed in gorm.Config.
-	logger.Default = logger.New(
-		&gormLogger{
-			Logger: log.NewWithOptions(
-				logWriter,
-				log.Options{
-					TimeFormat:      time.DateTime,
-					Level:           log.DebugLevel,
-					Prefix:          "gorm",
-					ReportTimestamp: true,
-				},
-			),
-		},
-		logger.Config{
+	gormlogger.Default = gormlogger.New(
+		&gormLogger{Logger: logger.Scoped("gorm")},
+		gormlogger.Config{
 			SlowThreshold: 1000 * time.Millisecond,
 			LogLevel:      level,
 		},
@@ -103,9 +92,9 @@ func dialectorFor(config *conf.Database) (gorm.Dialector, error) {
 	return nil, errors.Errorf("unsupported database type %q", config.Type)
 }
 
-// gormLogger is a wrapper of io.Writer for the GORM's logger.Writer.
+// gormLogger adapts structured logging to GORM's logger.Writer interface.
 type gormLogger struct {
-	*log.Logger
+	*logx.Logger
 }
 
 func (l *gormLogger) Printf(format string, args ...any) {

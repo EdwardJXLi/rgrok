@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/log"
+	charmlog "charm.land/log/v2"
 	"github.com/flamego/flamego"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -27,7 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.bobheadxi.dev/streamline/streamexec"
 	"golang.org/x/net/publicsuffix"
+	"unknwon.dev/x/logx"
 )
+
+var logger = logx.New(charmlog.NewWithOptions(os.Stderr, charmlog.Options{ReportTimestamp: true}))
 
 var (
 	token string
@@ -39,7 +42,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	if !*long {
-		log.Print("Skipping integration tests since -long is not specified.")
+		logger.Warn("Skipping integration tests since -long is not specified.")
 		return
 	}
 
@@ -55,35 +58,35 @@ func TestMain(m *testing.M) {
 	shutdownOIDCServer, err := setupOIDCServer(ctx)
 	if err != nil {
 		code = 1
-		log.Print("Failed to setup OIDC server", "error", err)
+		logger.Error("Failed to setup OIDC server", "error", err)
 		return
 	}
 	defer func() {
 		err = shutdownOIDCServer()
 		if err != nil {
-			log.Print("Failed to shutdown OIDC server", "error", err)
+			logger.Error("Failed to shutdown OIDC server", "error", err)
 		}
 	}()
 	shutdownPgrokd, err := setupPgrokd(ctx)
 	if err != nil {
 		code = 1
-		log.Print("Failed to setup rgrokd", "error", err)
+		logger.Error("Failed to setup rgrokd", "error", err)
 		return
 	}
 	defer func() {
 		err = shutdownPgrokd()
 		if err != nil {
-			log.Print("Failed to shutdown rgrokd", "error", err)
+			logger.Error("Failed to shutdown rgrokd", "error", err)
 		}
 	}()
 
 	token, url, err = authenticateUser()
 	if err != nil {
 		code = 1
-		log.Print("Failed to authenticate user", "error", err)
+		logger.Error("Failed to authenticate user", "error", err)
 		return
 	}
-	log.Print("Authenticated user", "token", token, "url", url)
+	logger.Info("Authenticated user", "url", url)
 
 	code = m.Run()
 }
@@ -100,17 +103,17 @@ func setupOIDCServer(ctx context.Context) (shutdown func() error, _ error) {
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start OIDC server", "error", err)
+			logger.Error("Failed to start OIDC server", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
 			fmt.Println("[oidc-server]", line)
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream OIDC server output", "error", err)
+			logger.Error("Failed to stream OIDC server output", "error", err)
 			return
 		}
-		log.Print("OIDC server exited")
+		logger.Info("OIDC server exited")
 	}()
 
 	// Make sure the OIDC server is live
@@ -119,7 +122,7 @@ func setupOIDCServer(ctx context.Context) (shutdown func() error, _ error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "probe OIDC server liveness")
 	}
-	log.Print("OIDC server started")
+	logger.Info("OIDC server started")
 
 	return func() error { return kill(cmd.Process.Pid) }, nil
 }
@@ -130,7 +133,8 @@ func setupPgrokd(ctx context.Context) (shutdown func() error, _ error) {
 		return nil, errors.Wrap(err, "pnpm run build")
 	}
 
-	err = run.Cmd(ctx, "go", "build", "-o", "../.bin/rgrokd", "../rgrokd/cli").Run().Wait()
+	// Build with the prod tag to embed the web app.
+	err = run.Cmd(ctx, "go", "build", "-tags", "prod", "-o", "../.bin/rgrokd", "../rgrokd/cli").Run().Wait()
 	if err != nil {
 		return nil, errors.Wrap(err, "go build")
 	}
@@ -142,17 +146,17 @@ func setupPgrokd(ctx context.Context) (shutdown func() error, _ error) {
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start rgrokd", "error", err)
+			logger.Error("Failed to start rgrokd", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
 			fmt.Println("[rgrokd]", line)
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream rgrokd output", "error", err)
+			logger.Error("Failed to stream rgrokd output", "error", err)
 			return
 		}
-		log.Print("rgrokd exited")
+		logger.Info("rgrokd exited")
 	}()
 
 	// Make sure the rgrokd web server is live
@@ -161,7 +165,7 @@ func setupPgrokd(ctx context.Context) (shutdown func() error, _ error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "probe rgrokd web server liveness")
 	}
-	log.Print("rgrokd started")
+	logger.Info("rgrokd started")
 
 	return func() error { return kill(cmd.Process.Pid) }, nil
 }
@@ -200,7 +204,6 @@ func authenticateUser() (token, url string, _ error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", "", errors.Errorf("unexpected user info status code: %d - %s", resp.StatusCode, body)
 	}
-	log.Print("Got user info", "body", string(body))
 
 	var userInfo map[string]string
 	err = json.Unmarshal(body, &userInfo)
@@ -237,6 +240,10 @@ func kill(pid int) error {
 }
 
 func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string, shutdown func() error, _ error) {
+	return setupPgrokWithSubdomain(ctx, protocol, port, "")
+}
+
+func setupPgrokWithSubdomain(ctx context.Context, protocol string, port int, subdomain string) (endpoint string, shutdown func() error, _ error) {
 	err := run.Cmd(ctx, "go", "build", "-o", "../.bin/rgrok", "../rgrok/cli").Run().Wait()
 	if err != nil {
 		return "", nil, errors.Wrap(err, "go build")
@@ -250,6 +257,9 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 	if protocol == "tcp" {
 		args = append(args, "--forward-addr", "localhost:9833")
 	}
+	if subdomain != "" {
+		args = append(args, "--subdomain", subdomain)
+	}
 	if port > 0 {
 		args = append(args, strconv.Itoa(port))
 	}
@@ -262,7 +272,7 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start rgrok", "error", err)
+			logger.Error("Failed to start rgrok", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
@@ -274,16 +284,16 @@ func setupPgrok(ctx context.Context, protocol string, port int) (endpoint string
 			}
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream rgrok output", "error", err)
+			logger.Error("Failed to stream rgrok output", "error", err)
 			return
 		}
-		log.Printf("rgrok %s exited", protocol)
+		logger.Info("rgrok exited", "protocol", protocol)
 	}()
 
 	// Make sure the rgrok is ready
 	select {
 	case <-ready:
-		log.Print("rgrok started", "protocol", protocol, "endpoint", endpoint)
+		logger.Info("rgrok started", "protocol", protocol, "endpoint", endpoint)
 	case <-time.After(5 * time.Second):
 		return "", nil, errors.New("rgrok failed to start after 5 seconds")
 	}
@@ -303,17 +313,17 @@ func setupEchoServer(ctx context.Context) (shutdown func() error, _ error) {
 	go func() {
 		stream, err := streamexec.Start(cmd)
 		if err != nil {
-			log.Print("Failed to start echo server", "error", err)
+			logger.Error("Failed to start echo server", "error", err)
 			return
 		}
 		err = stream.Stream(func(line string) {
 			fmt.Println("[echo-server]", line)
 		})
 		if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-			log.Print("Failed to stream echo server output", "error", err)
+			logger.Error("Failed to stream echo server output", "error", err)
 			return
 		}
-		log.Print("echo server exited")
+		logger.Info("echo server exited")
 	}()
 
 	// Make sure the server is live
@@ -322,7 +332,7 @@ func setupEchoServer(ctx context.Context) (shutdown func() error, _ error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "probe echo server liveness")
 	}
-	log.Print("echo server started")
+	logger.Info("echo server started")
 
 	return func() error { return kill(cmd.Process.Pid) }, nil
 }
@@ -377,6 +387,26 @@ func TestMultipleHTTP(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, shutdownPgrok3()) })
 	require.Equal(t, "unknwon.localhost:3000", endpoint3)
+}
+
+func TestCustomSubdomain(t *testing.T) {
+	ctx := context.Background()
+
+	shutdownEchoServer, err := setupEchoServer(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, shutdownEchoServer()) })
+
+	endpoint1, shutdownPgrok1, err := setupPgrokWithSubdomain(ctx, "http", 8001, "test")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, shutdownPgrok1()) })
+	require.Equal(t, "test.localhost:3000", endpoint1)
+
+	// A request routed via the custom host should be forwarded.
+	body, err := run.Cmd(ctx,
+		"curl", "--silent", fmt.Sprintf("http://%s/echo?q=chickendinner", endpoint1),
+	).Run().String()
+	require.NoError(t, err)
+	require.Contains(t, body, "chickendinner")
 }
 
 func TestTCP(t *testing.T) {

@@ -1,6 +1,5 @@
 packages:
   - 'rgrokd/web'
 
-# pnpm v10 blocks dependency build scripts by default; allow-list the ones we trust.
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true

@@ -8,36 +8,52 @@ import (
 	"io"
 	mathrand "math/rand"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
+	"unknwon.dev/x/anyx"
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/conf"
 	"github.com/EdwardJXLi/rgrok/internal/database"
 	"github.com/EdwardJXLi/rgrok/internal/reverseproxy"
-	"github.com/EdwardJXLi/rgrok/internal/strutil"
 )
 
 // Client is a SSH client that has established a connection.
 type Client struct {
-	logger      *log.Logger
+	logger      *logx.Logger
 	db          *database.DB
 	serverConn  *ssh.ServerConn
 	principal   *database.Principal
+	mu          sync.Mutex
+	forwarding  bool
 	protocol    string
 	host        string
+	customHost  bool
 	ready       context.Context
 	signalReady context.CancelCauseFunc
 }
 
+var subdomainLabelRE = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
+
+const dnsLabelMaxLen = 63
+
 func (c *Client) handleHint(req *ssh.Request) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forwarding {
+		_ = req.Reply(false, []byte("tunnel is already forwarding"))
+		return
+	}
 	var payload struct {
-		Protocol string `json:"protocol"`
+		Protocol  string `json:"protocol"`
+		Subdomain string `json:"subdomain,omitempty"`
 	}
 	err := json.Unmarshal(req.Payload, &payload)
 	if err != nil {
@@ -47,6 +63,19 @@ func (c *Client) handleHint(req *ssh.Request) {
 	if payload.Protocol != "tcp" && payload.Protocol != "http" {
 		_ = req.Reply(false, []byte("unsupported protocol: "+payload.Protocol))
 		return
+	}
+	if payload.Subdomain != "" {
+		if payload.Protocol != "http" {
+			_ = req.Reply(false, []byte("custom subdomain is only supported for http"))
+			return
+		}
+		if len(payload.Subdomain) > dnsLabelMaxLen || !subdomainLabelRE.MatchString(payload.Subdomain) {
+			_ = req.Reply(false, []byte("invalid subdomain: use 1 to 63 lowercase letters, digits, or hyphens, with no leading or trailing hyphen"))
+			return
+		}
+		_, domain, _ := strings.Cut(c.host, ".")
+		c.host = payload.Subdomain + "." + domain
+		c.customHost = true
 	}
 	c.protocol = payload.Protocol
 	_ = req.Reply(true, nil)
@@ -77,6 +106,14 @@ func (c *Client) handleTCPIPForward(
 		_ = req.Reply(false, nil)
 		return
 	}
+	c.mu.Lock()
+	if c.forwarding {
+		c.mu.Unlock()
+		_ = req.Reply(false, []byte("tunnel is already forwarding"))
+		return
+	}
+	c.forwarding = true
+	c.mu.Unlock()
 
 	var port int
 	var listener net.Listener
@@ -208,10 +245,17 @@ func (c *Client) handleTCPIPForward(
 	}
 
 	if c.protocol == "http" {
-		id := uuid.New()
-		alternative := hex.EncodeToString(id[:]) + "-" + c.host
+		// An explicit hostname must fail on collision to keep the URL deterministic.
+		alternative := c.host
+		if !c.customHost {
+			id := uuid.New()
+			alternative = hex.EncodeToString(id[:]) + "-" + c.host
+		}
 		host, err := proxies.Set(c.host, alternative, listener.Addr().String())
 		if err != nil {
+			if c.customHost {
+				err = errors.Errorf("requested subdomain %q is already in use", c.host)
+			}
 			_ = req.Reply(false, []byte(err.Error()))
 			c.logger.Error("Failed to acquire available host",
 				"remote", c.serverConn.RemoteAddr(),
@@ -221,8 +265,8 @@ func (c *Client) handleTCPIPForward(
 			return
 		}
 		c.host = host
-		c.signalReady(nil)
 	}
+	c.signalReady(nil)
 	_ = req.Reply(true, ssh.Marshal(payload))
 	<-ctx.Done()
 	if c.protocol == "http" {
@@ -247,6 +291,9 @@ func acquireAvailablePort(start, end int) (_ net.Listener, port int, _ error) {
 }
 
 func (c *Client) handleServerInfo(proxy conf.Proxy, req *ssh.Request) {
+	c.mu.Lock()
+	protocol := c.protocol
+	c.mu.Unlock()
 	if len(req.Payload) > 0 {
 		var payload struct {
 			Protocol string `json:"protocol"`
@@ -256,27 +303,29 @@ func (c *Client) handleServerInfo(proxy conf.Proxy, req *ssh.Request) {
 			_ = req.Reply(false, []byte(err.Error()))
 			return
 		}
-		c.protocol = payload.Protocol
+		protocol = payload.Protocol
+	}
+
+	if protocol != "http" && protocol != "tcp" {
+		_ = req.Reply(false, []byte(fmt.Sprintf("unsupported protocol: %s", protocol)))
+		return
+	}
+	<-c.ready.Done()
+	if cause := context.Cause(c.ready); cause != nil && cause != context.Canceled {
+		_ = req.Reply(false, []byte(cause.Error()))
+		return
 	}
 
 	var hostURL string
-	switch c.protocol {
+	switch protocol {
 	case "tcp":
-		host := strutil.Coalesce(proxy.TCP.Domain, proxy.Domain)
+		host := anyx.Coalesce(proxy.TCP.Domain, proxy.Domain)
 		if i := strings.Index(host, ":"); i > 0 {
 			host = host[:i]
 		}
 		hostURL = "tcp://" + host + ":" + strconv.Itoa(c.principal.LastTCPPort)
 	case "http":
-		<-c.ready.Done()
-		if cause := context.Cause(c.ready); cause != nil && cause != context.Canceled {
-			_ = req.Reply(false, []byte(cause.Error()))
-			return
-		}
 		hostURL = proxy.Scheme + "://" + c.host
-	default:
-		_ = req.Reply(false, []byte(fmt.Sprintf("unsupported protocol: %s", c.protocol)))
-		return
 	}
 
 	resp, err := json.Marshal(map[string]string{

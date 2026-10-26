@@ -1,0 +1,54 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: "typescript"
+stack: "frontend"
+id: "rgrokd-web"
+
+fileGroups:
+  sources:
+    - "src/**/*"
+    - "index.html"
+  configs:
+    - "package.json"
+    - "tsconfig*.json"
+    - "vite.config.*"
+
+tasks:
+  install:
+    command: "pnpm install"
+    inputs:
+      - "package.json"
+      - "/pnpm-lock.yaml"
+      - "/pnpm-workspace.yaml"
+    options:
+      runFromWorkspaceRoot: true
+
+  dev:
+    command: "pnpm run dev"
+    preset: "server"
+    options:
+      runFromWorkspaceRoot: false
+    deps:
+      - "install"
+
+  build:
+    command: "pnpm run build"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+    outputs:
+      - "/rgrokd/cli/internal/web/dist"
+    options:
+      runFromWorkspaceRoot: false
+    deps:
+      - "install"
+
+  lint:
+    command: "pnpm run lint"
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+    options:
+      runFromWorkspaceRoot: false
+    deps:
+      - "install"

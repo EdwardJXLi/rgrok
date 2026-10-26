@@ -1,7 +1,9 @@
 package main
 
 import (
-	"github.com/charmbracelet/log"
+	"context"
+
+	"unknwon.dev/x/logx"
 
 	"github.com/EdwardJXLi/rgrok/internal/conf"
 	"github.com/EdwardJXLi/rgrok/internal/database"
@@ -9,16 +11,20 @@ import (
 	"github.com/EdwardJXLi/rgrok/internal/sshd"
 )
 
-func startSSHServer(logger *log.Logger, sshdPort int, proxy conf.Proxy, db *database.DB, proxies *reverseproxy.Cluster) {
-	logger = logger.WithPrefix("sshd")
-	err := sshd.Start(
+func runSSHServer(
+	ctx context.Context,
+	logger *logx.Logger,
+	sshdPort int,
+	proxy conf.Proxy,
+	db *database.DB,
+	proxies *reverseproxy.Cluster,
+) error {
+	return sshd.Start(
+		ctx,
 		logger,
 		sshdPort,
 		proxy,
 		db,
 		proxies,
 	)
-	if err != nil {
-		logger.Fatal("Failed to start server", "error", err)
-	}
 }

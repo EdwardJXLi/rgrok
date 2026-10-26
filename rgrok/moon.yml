@@ -1,0 +1,37 @@
+$schema: "https://moonrepo.dev/schemas/project.json"
+
+language: "go"
+stack: "backend"
+id: "rgrok"
+
+fileGroups:
+  sources:
+    - "/rgrok/**/*.go"
+    - "/internal/**/*.go"
+  tests:
+    - "/rgrok/**/*_test.go"
+    - "/internal/**/*_test.go"
+  configs:
+    - "/go.mod"
+    - "/go.sum"
+    - "/.golangci.yml"
+
+tasks:
+  build:
+    command: "go build -v -trimpath -o .bin/rgrok ./rgrok/cli"
+    options:
+      runFromWorkspaceRoot: true
+    inputs:
+      - "@group(sources)"
+      - "@group(configs)"
+    outputs:
+      - "/.bin/rgrok"
+
+  test:
+    command: "go test -cover -race ./rgrok/..."
+    options:
+      runFromWorkspaceRoot: true
+    inputs:
+      - "@group(sources)"
+      - "@group(tests)"
+      - "@group(configs)"
